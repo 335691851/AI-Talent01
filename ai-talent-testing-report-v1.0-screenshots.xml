@@ -1,0 +1,24 @@
+<h1>十一、真实业务截图与组件运行证据</h1>
+<p>以下截图均通过本地真实页面采集，使用管理员账号 admin 与测试员工 TEST-1001 完成业务链路验证。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">截图</th>
+      <th background-color="light-gray">证明内容</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>截图 1</td><td>管理员首页正常展示企业内部员工特征分布概览和核心指标。</td></tr>
+    <tr><td>截图 2</td><td>管理员 Excel 导入成功，页面展示总行数、成功数和失败数。</td></tr>
+    <tr><td>截图 3</td><td>员工端可查看历史评估记录和最新 AI 分数、评估说明。</td></tr>
+    <tr><td>截图 4</td><td>管理员人才检索可查到 TEST-1001，展示档案信息、匹配原因和评估摘要。</td></tr>
+    <tr><td>截图 5</td><td>系统配置页展示 Supabase、DeepSeek、Cloudflare、向量化等组件运行状态。</td></tr>
+  </tbody>
+</table>
+
+<p>截图 1：管理员首页业务指标与员工特征分布正常展示</p>
+<p>截图 2：Excel 员工导入成功，成功 1、失败 0</p>
+<p>截图 3：员工 AI 自评估结果成功生成，最新 AI 分数为 82</p>
+<p>截图 4：管理员 AI 人才检索成功展示 TEST-1001 与匹配原因</p>
+<p>截图 5：实施配置页展示数据库、AI 服务、Embedding 与向量化组件状态</p>

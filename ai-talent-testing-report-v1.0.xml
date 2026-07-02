@@ -1,0 +1,157 @@
+<title>AI Talent 测试报告 v1.0</title>
+
+<callout emoji="✅" background-color="light-green" border-color="green" text-color="green">
+  <p><b>测试结论：</b>本轮发布前测试通过。当前代码满足发布到远程仓库 / Vercel 部署前的基础条件。</p>
+</callout>
+
+<h1>一、测试目标</h1>
+<p>完成本地项目发布前质量门禁，验证核心功能、接口、安全控制、数据库迁移和端到端可用性。</p>
+<p>生成时间：2026-07-02</p>
+
+<h1>二、发布结论</h1>
+<ul>
+  <li>代码质量检查通过。</li>
+  <li>单元测试通过：5 个测试文件，12 个用例。</li>
+  <li>生产构建通过。</li>
+  <li>桌面端 E2E 通过：6 个业务用例。</li>
+  <li>DeepSeek 真实 API smoke test 通过。</li>
+  <li>npm audit 安全审查通过：0 个漏洞。</li>
+  <li>Supabase migration 幂等执行通过。</li>
+  <li>Playwright 临时报告和测试附件已加入 .gitignore，不会进入远程发布包。</li>
+</ul>
+
+<h1>三、本轮修复项</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">类型</th>
+      <th background-color="light-gray">问题</th>
+      <th background-color="light-gray">处理结果</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>测试覆盖</td>
+      <td>Excel 模板下载接口未被 E2E 覆盖</td>
+      <td>新增管理员模板下载断言，校验文件名 ai-talent-employee-template.xlsx</td>
+    </tr>
+    <tr>
+      <td>安全覆盖</td>
+      <td>员工直接访问管理员模板 API 未被覆盖</td>
+      <td>新增员工访问 /api/import/template 的重定向 / 拒绝断言</td>
+    </tr>
+    <tr>
+      <td>数据安全</td>
+      <td>RLS 与权限撤销缺少自动化测试</td>
+      <td>新增 Vitest 静态测试，检查业务表启用 RLS 并撤销 anon/authenticated 权限</td>
+    </tr>
+    <tr>
+      <td>发布清洁度</td>
+      <td>Playwright 报告与测试结果目录可能进入远程</td>
+      <td>更新 .gitignore，忽略 playwright-report/、test-results/、tests/e2e/.artifacts/</td>
+    </tr>
+  </tbody>
+</table>
+
+<h1>四、测试环境</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">项目</th>
+      <th background-color="light-gray">配置</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>应用</td><td>Next.js App Router</td></tr>
+    <tr><td>数据库</td><td>Supabase Postgres + pgvector</td></tr>
+    <tr><td>AI Chat</td><td>Vercel AI SDK + DeepSeek</td></tr>
+    <tr><td>Embedding</td><td>Cloudflare Workers AI bge-m3；E2E 演示模式使用确定性 1024 维本地向量</td></tr>
+    <tr><td>测试运行</td><td>Windows PowerShell，本地 .env.local</td></tr>
+    <tr><td>E2E 浏览器</td><td>Desktop Chromium</td></tr>
+    <tr><td>测试员工</td><td>TEST-1001，手机号 13900001001，允许清理 / 覆盖</td></tr>
+  </tbody>
+</table>
+
+<h1>五、自动化测试结果</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">命令</th>
+      <th background-color="light-gray">结果</th>
+      <th background-color="light-gray">说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>npm run lint</td><td>通过</td><td>ESLint 无错误</td></tr>
+    <tr><td>npm run test</td><td>通过</td><td>5 个测试文件，12 个用例通过</td></tr>
+    <tr><td>npm run build</td><td>通过</td><td>Next.js 生产构建成功</td></tr>
+    <tr><td>npm run test:e2e</td><td>通过</td><td>6 个 Playwright 桌面端用例通过</td></tr>
+    <tr><td>npm run db:push</td><td>通过</td><td>migration 可重复执行，已存在对象正常跳过</td></tr>
+    <tr><td>npm audit --registry=https://registry.npmjs.org/</td><td>通过</td><td>found 0 vulnerabilities</td></tr>
+  </tbody>
+</table>
+
+<h1>六、Vitest 覆盖范围</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">文件</th>
+      <th background-color="light-gray">覆盖内容</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>src/lib/import/excel.test.ts</td><td>Excel 员工档案解析、必填校验、字段映射</td></tr>
+    <tr><td>src/lib/assessment/prompts.test.ts</td><td>AI 评估 prompt、最终 JSON 解析、评分边界处理</td></tr>
+    <tr><td>src/lib/ai/embedding.test.ts</td><td>向量格式化、embedding 相关工具行为</td></tr>
+    <tr><td>src/lib/db/search.test.ts</td><td>结构化检索与语义检索融合排序逻辑</td></tr>
+    <tr><td>src/lib/db/security.test.ts</td><td>RLS 启用、表权限撤销、向量匹配函数权限限制</td></tr>
+  </tbody>
+</table>
+
+<h1>七、Playwright E2E 覆盖范围</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">用例</th>
+      <th background-color="light-gray">结果</th>
+      <th background-color="light-gray">覆盖点</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>DeepSeek configuration smoke test</td><td>通过</td><td>使用 .env.local 中 DeepSeek 参数发起真实 smoke 请求</td></tr>
+    <tr><td>管理员登录、核心页面导航和状态展示</td><td>通过</td><td>首页、员工档案、人才检索、Excel 导入、设置页</td></tr>
+    <tr><td>管理员下载模板、导入合法 / 非法员工 Excel</td><td>通过</td><td>模板下载、行级错误、合法导入、TEST-1001 创建</td></tr>
+    <tr><td>测试员工登录、编辑档案、完成 10 轮 AI 自评估</td><td>通过</td><td>档案保存、Chatbox 流式响应、10 轮完成、结果入库</td></tr>
+    <tr><td>管理员检索员工且不可见完整 Chat</td><td>通过</td><td>管理员检索、匹配原因、embedding 写入、完整对话不可见</td></tr>
+    <tr><td>员工不能访问管理员页面 / API</td><td>通过</td><td>/imports、/search、/settings、/api/import/template 权限控制</td></tr>
+  </tbody>
+</table>
+
+<h1>八、安全与权限检查</h1>
+<ul>
+  <li>管理员可以查看员工档案、最新评估结果、结构化摘要和检索结果。</li>
+  <li>管理员不能查看员工完整 Chat 对话内容。</li>
+  <li>员工只能访问个人档案和个人 AI 自评估。</li>
+  <li>员工访问管理员页面会被重定向。</li>
+  <li>员工访问管理员模板 API 不会获得模板文件。</li>
+  <li>Supabase 业务表均启用 RLS。</li>
+  <li>anon 与 authenticated 被撤销业务表直接访问权限。</li>
+  <li>match_employee_embeddings 仅授权 service_role 执行。</li>
+  <li>浏览器端不暴露 Supabase service role、DeepSeek Key、Cloudflare Token。</li>
+</ul>
+
+<h1>九、发布前建议</h1>
+<ol>
+  <li seq="auto">将代码提交到 GitHub 远程仓库。</li>
+  <li seq="auto">在 Vercel 配置与本地 .env.local 对应的生产环境变量。</li>
+  <li seq="auto">在目标 Supabase 项目执行 migration。</li>
+  <li seq="auto">在生产环境执行一次 smoke 验证：管理员登录、员工导入、员工登录、10 轮评估、管理员检索。</li>
+</ol>
+
+<h1>十、剩余注意事项</h1>
+<ul>
+  <li>E2E 仅验证桌面端，因为本应用当前明确不提供移动端。</li>
+  <li>E2E 使用演示 AI 响应保证稳定；DeepSeek 使用 smoke test 验证真实连通性。</li>
+  <li>Cloudflare embedding 生产环境需要配置真实账号与 Token；本地演示模式可用确定性向量跑通 pgvector 链路。</li>
+  <li>.env.local 不应提交到远程，生产参数应配置在 Vercel Environment Variables。</li>
+</ul>

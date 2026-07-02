@@ -1,0 +1,394 @@
+<title>AI Talent 需求说明书 v0.1</title>
+
+<h1>一、文档信息</h1>
+<table>
+  <tbody>
+    <tr><td>产品名称</td><td>AI Talent</td></tr>
+    <tr><td>文档类型</td><td>需求说明书</td></tr>
+    <tr><td>文档版本</td><td>v0.1</td></tr>
+    <tr><td>日期</td><td>2026-07-01</td></tr>
+    <tr><td>目标读者</td><td>产品负责人、研发、测试、实施人员</td></tr>
+    <tr><td>状态</td><td>已根据当前确认范围输出，可进入原型和开发拆解</td></tr>
+  </tbody>
+</table>
+
+<h1>二、项目背景</h1>
+<p>AI Talent 是一个面向单一企业内部使用的 AI 人才档案、AI 能力测评与人才检索系统。系统通过管理员批量导入员工档案、员工补充 AI 水平记录、AI Chatbox 完成多轮能力测评、管理员混合检索员工能力，帮助企业识别内部 AI 人才、匹配 AI 项目人选、沉淀员工 AI 能力数据。</p>
+<p>本系统不定位为通用 HR 系统，不提供多租户能力，不提供部门级权限管理，不向普通员工提供人才检索能力。</p>
+
+<h1>三、产品目标</h1>
+<ul>
+  <li>支持管理员通过 Excel 统一导入企业员工档案。</li>
+  <li>支持员工登录后维护自己的岗位信息和 AI 水平记录。</li>
+  <li>支持员工主动多次发起 AI 能力测评任务。</li>
+  <li>支持 AI 主动发起 10 轮测评对话，并在完成后生成 AI 能力分数和评估说明。</li>
+  <li>支持管理员查看员工完整档案、最新评估结果和结构化摘要。</li>
+  <li>支持管理员通过结构化筛选和 embedding 语义检索找到适合特定能力或项目需求的员工。</li>
+  <li>支持管理员首页展示企业内部员工 AI 人才特征分布概览。</li>
+</ul>
+
+<h1>四、范围说明</h1>
+<h2>包含范围</h2>
+<ul>
+  <li>管理员账号登录。</li>
+  <li>员工手机号和密码登录。</li>
+  <li>员工档案 Excel 导入、预览、确认和覆盖更新。</li>
+  <li>员工档案查看与编辑。</li>
+  <li>员工 AI 水平记录维护。</li>
+  <li>AI 能力测评 Chatbox。</li>
+  <li>评估结果保存与历史记录展示。</li>
+  <li>管理员人才检索。</li>
+  <li>embedding 索引自动生成与更新。</li>
+  <li>管理员首页数据概览。</li>
+</ul>
+
+<h2>不包含范围</h2>
+<ul>
+  <li>不提供多企业租户能力。</li>
+  <li>不提供部门级管理员和部门级权限。</li>
+  <li>不提供员工检索人才能力。</li>
+  <li>不支持管理员查看员工完整 Chat 对话。</li>
+  <li>不支持管理员删除员工。</li>
+  <li>不支持管理员手动触发单个员工重新生成 embedding。</li>
+  <li>不保存管理员人才检索历史作为产品功能。</li>
+  <li>不要求用户或管理员首次登录强制修改初始密码。</li>
+</ul>
+
+<h1>五、角色与权限</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">角色</th><th background-color="light-gray">说明</th><th background-color="light-gray">权限</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>主管理员</td><td>系统初始化管理员账号。</td><td>账号为 admin，密码为 admin；拥有所有管理员能力。</td></tr>
+    <tr><td>管理员</td><td>企业管理人员。</td><td>可导入、查看、编辑全部员工档案；可查看员工最终评估结果和结构化摘要；可发起人才检索；不可删除员工；不可查看员工完整 Chat 对话。</td></tr>
+    <tr><td>用户</td><td>企业员工。</td><td>可登录系统，查看和编辑自己的档案，发起 AI 测评任务，查看自己的完整 Chat 对话和所有历史评估结果；不可检索其他员工。</td></tr>
+  </tbody>
+</table>
+
+<h2>登录规则</h2>
+<ul>
+  <li>主管理员初始账号为 admin，初始密码为 admin。</li>
+  <li>员工登录方式为手机号 + 密码。</li>
+  <li>员工初始密码统一为 88888888。</li>
+  <li>不要求首次登录强制修改密码。</li>
+  <li>手机号为员工登录必填字段。</li>
+</ul>
+
+<h1>六、核心业务流程</h1>
+
+<h2>1. 员工档案导入流程</h2>
+<ol>
+  <li seq="auto">管理员进入员工导入页。</li>
+  <li seq="auto">管理员下载或使用系统提供的 Excel 模板。</li>
+  <li seq="auto">管理员填写员工数据并上传 Excel。</li>
+  <li seq="auto">系统解析 Excel 并校验必填字段。</li>
+  <li seq="auto">系统以工号作为员工主 ID 判断新增或更新。</li>
+  <li seq="auto">若工号已存在，系统标记为覆盖更新。</li>
+  <li seq="auto">若工号不存在，系统标记为新增员工。</li>
+  <li seq="auto">若手机号为空，系统将该行标记为错误，不允许导入。</li>
+  <li seq="auto">管理员查看导入预览、错误行和更新提示。</li>
+  <li seq="auto">管理员确认导入后，系统创建或更新员工档案。</li>
+  <li seq="auto">系统为新增员工初始化登录密码 88888888。</li>
+  <li seq="auto">导入完成后，系统自动触发相关员工的摘要和 embedding 索引更新。</li>
+</ol>
+
+<h2>2. 员工档案维护流程</h2>
+<ol>
+  <li seq="auto">员工使用手机号和密码登录系统。</li>
+  <li seq="auto">员工进入我的档案页。</li>
+  <li seq="auto">员工查看基础信息、岗位、岗位描述、级别。</li>
+  <li seq="auto">员工补充或修改 AI 水平记录，包括产品能力、技术栈能力、项目经验。</li>
+  <li seq="auto">员工保存档案。</li>
+  <li seq="auto">系统更新员工档案并自动触发结构化摘要和 embedding 索引更新。</li>
+</ol>
+
+<h2>3. 员工 AI 自评估流程</h2>
+<ol>
+  <li seq="auto">员工进入我的 AI 评估页。</li>
+  <li seq="auto">员工主动点击发起 AI 能力测评。</li>
+  <li seq="auto">系统创建一条新的评估任务。</li>
+  <li seq="auto">AI 主动发起多轮测评对话。</li>
+  <li seq="auto">Chatbox 加载员工当前档案和 AI 水平记录。</li>
+  <li seq="auto">AI 按评估维度进行提问，员工逐轮回答。</li>
+  <li seq="auto">测评固定通过 10 轮对话完成，10 轮后才能生成结果。</li>
+  <li seq="auto">若员工中途退出或未完成 10 轮，当前评估任务作废，不生成过程结果和最终结果。</li>
+  <li seq="auto">完成 10 轮后，AI 生成 AI 能力分数和 AI 评估说明。</li>
+  <li seq="auto">系统保存完整 Chat 对话、评估结果、结构化摘要和 embedding 索引。</li>
+  <li seq="auto">员工可在档案中查看所有历史评估记录。</li>
+  <li seq="auto">管理员视图和管理员人才检索默认只使用员工最后一次有效评估结果。</li>
+</ol>
+
+<h2>4. 管理员人才检索流程</h2>
+<ol>
+  <li seq="auto">管理员进入人才检索页。</li>
+  <li seq="auto">管理员输入自然语言需求，例如需要进行质量视觉分析助手项目，推荐合适员工。</li>
+  <li seq="auto">系统解析可能存在的结构化条件，例如岗位、级别、分数、关键词。</li>
+  <li seq="auto">系统对检索问题生成 query embedding。</li>
+  <li seq="auto">系统执行结构化筛选和向量语义检索。</li>
+  <li seq="auto">系统合并筛选结果、向量相似度和员工最新评估结果进行排序。</li>
+  <li seq="auto">DeepSeek 生成候选员工匹配说明。</li>
+  <li seq="auto">系统展示候选员工完整档案、最新评估结果、结构化摘要、匹配依据。</li>
+  <li seq="auto">系统不保存人才检索历史作为产品功能。</li>
+</ol>
+
+<h1>七、核心用例</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">用例编号</th><th background-color="light-gray">用例名称</th><th background-color="light-gray">角色</th><th background-color="light-gray">目标</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>UC-01</td><td>管理员登录系统</td><td>管理员</td><td>使用 admin/admin 或管理员账号进入系统后台。</td></tr>
+    <tr><td>UC-02</td><td>导入员工档案</td><td>管理员</td><td>通过 Excel 批量创建或更新员工档案。</td></tr>
+    <tr><td>UC-03</td><td>查看员工列表</td><td>管理员</td><td>查看所有员工档案状态、评估状态和最新 AI 分数。</td></tr>
+    <tr><td>UC-04</td><td>编辑员工档案</td><td>管理员</td><td>编辑任一员工基础信息、岗位信息和 AI 水平记录。</td></tr>
+    <tr><td>UC-05</td><td>员工登录系统</td><td>用户</td><td>使用手机号和密码进入系统。</td></tr>
+    <tr><td>UC-06</td><td>员工维护个人档案</td><td>用户</td><td>查看并编辑自己的岗位描述和 AI 水平记录。</td></tr>
+    <tr><td>UC-07</td><td>发起 AI 能力测评</td><td>用户</td><td>主动发起新的 10 轮 AI 能力测评任务。</td></tr>
+    <tr><td>UC-08</td><td>查看历史评估记录</td><td>用户</td><td>查看自己所有历史有效评估结果和完整 Chat 对话。</td></tr>
+    <tr><td>UC-09</td><td>管理员查看员工评估结果</td><td>管理员</td><td>查看员工最终评估结果和结构化摘要，不查看完整 Chat 对话。</td></tr>
+    <tr><td>UC-10</td><td>管理员检索人才</td><td>管理员</td><td>按自然语言需求检索适合特定能力或项目的员工。</td></tr>
+    <tr><td>UC-11</td><td>查看企业员工特征分布</td><td>管理员</td><td>在管理员首页查看员工 AI 能力、岗位、级别、关键词等分布概览。</td></tr>
+  </tbody>
+</table>
+
+<h1>八、功能需求</h1>
+
+<h2>1. 登录与账号</h2>
+<ul>
+  <li>系统必须支持主管理员账号 admin/admin。</li>
+  <li>系统必须支持员工使用手机号和密码登录。</li>
+  <li>系统必须支持员工账号由 Excel 导入创建。</li>
+  <li>系统必须支持员工初始密码统一为 88888888。</li>
+  <li>系统不要求首次登录强制修改初始密码。</li>
+  <li>系统必须根据角色展示不同页面和权限。</li>
+</ul>
+
+<h2>2. 员工管理</h2>
+<ul>
+  <li>管理员必须可以查看员工列表。</li>
+  <li>管理员必须可以查看员工详情。</li>
+  <li>管理员必须可以编辑员工档案。</li>
+  <li>管理员禁止删除员工。</li>
+  <li>员工列表应展示姓名、工号、手机号、岗位、级别、档案完善状态、最新 AI 分数、最新评估时间。</li>
+  <li>员工详情应展示员工完整档案、AI 水平记录、所有评估记录摘要和最新有效评估结果。</li>
+</ul>
+
+<h2>3. Excel 导入</h2>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">字段</th><th background-color="light-gray">是否必填</th><th background-color="light-gray">说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>姓名</td><td>是</td><td>员工姓名。</td></tr>
+    <tr><td>工号</td><td>是</td><td>员工主 ID，作为导入新增或覆盖更新依据。</td></tr>
+    <tr><td>手机号</td><td>是</td><td>员工登录账号，缺失时不允许导入。</td></tr>
+    <tr><td>邮箱</td><td>否</td><td>可选联系方式。</td></tr>
+    <tr><td>岗位</td><td>是</td><td>员工当前岗位。</td></tr>
+    <tr><td>岗位描述</td><td>否</td><td>岗位职责、核心任务和业务场景。</td></tr>
+    <tr><td>级别</td><td>否</td><td>员工职级或岗位级别。</td></tr>
+    <tr><td>产品能力</td><td>否</td><td>员工使用 AI 产品或工具的能力描述。</td></tr>
+    <tr><td>技术栈能力</td><td>否</td><td>员工 AI 技术、框架、语言、系统能力描述。</td></tr>
+    <tr><td>项目经验</td><td>否</td><td>员工 AI 或智能化相关项目经验长文本。</td></tr>
+  </tbody>
+</table>
+<p>导入时若工号重复，系统执行覆盖更新。导入时若手机号缺失，系统不允许该行进入系统。导入前必须提供预览和错误行提示。</p>
+
+<h2>4. 员工档案</h2>
+<p>员工档案由基础信息、岗位信息、AI 水平记录、AI 评估记录组成。员工和管理员都可以编辑档案，但员工只能编辑自己的档案。</p>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">字段</th><th background-color="light-gray">说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>ai_product_experience</td><td>产品能力，描述使用市场上 AI 产品、AI 系统或 AI 工具完成工作的能力。</td></tr>
+    <tr><td>ai_technical_experience</td><td>技术栈能力，描述框架、语言、模型工程、数据处理、系统开发等 AI 技术能力。</td></tr>
+    <tr><td>ai_project_experience</td><td>项目经验，描述 AI、数据、自动化、智能系统、算法、模型应用等项目经历。</td></tr>
+  </tbody>
+</table>
+
+<h2>5. AI 自评估 Chatbox</h2>
+<ul>
+  <li>员工可以主动多次发起 AI 能力测评任务。</li>
+  <li>每次任务必须创建独立评估会话。</li>
+  <li>AI 必须主动发起测评对话。</li>
+  <li>测评任务固定 10 轮对话。</li>
+  <li>只有完成 10 轮对话后才能生成评估结果。</li>
+  <li>员工中途退出，当前任务作废，不生成过程结果和最终结果。</li>
+  <li>系统必须保存有效任务的完整 Chat 对话。</li>
+  <li>完整 Chat 对话仅员工本人可见。</li>
+  <li>管理员只能查看最终评估结果和结构化摘要。</li>
+  <li>LLM 使用 DeepSeek deepseek-v4-flash。</li>
+</ul>
+
+<h2>6. AI 评估结果</h2>
+<p>AI 评估结果只包含两个正式结果：AI 能力分数和 AI 评估说明。</p>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">结果</th><th background-color="light-gray">规则</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>AI 能力分数</td><td>百分制，范围 0-100 分。</td></tr>
+    <tr><td>AI 评估说明</td><td>长文本，说明员工 AI 能力表现、证据、优势、短板、适合项目类型和提升建议。</td></tr>
+  </tbody>
+</table>
+
+<h2>7. AI 分数标准</h2>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">分数区间</th><th background-color="light-gray">等级说明</th><th background-color="light-gray">含义</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>0-59</td><td>AI 基础薄弱</td><td>仅具备有限 AI 认知或很少实际使用经验。</td></tr>
+    <tr><td>60-74</td><td>AI 入门应用</td><td>能使用部分 AI 产品完成基础工作任务。</td></tr>
+    <tr><td>75-84</td><td>AI 熟练应用</td><td>能结合岗位任务较稳定地使用 AI 工具提升效率。</td></tr>
+    <tr><td>85-94</td><td>AI 复合能力</td><td>具备产品使用、技术栈或项目经验中的多项能力，可参与 AI 项目。</td></tr>
+    <tr><td>95-100</td><td>AI 高潜专家</td><td>具备较强 AI 项目经验、技术实现能力或复杂场景落地能力。</td></tr>
+  </tbody>
+</table>
+
+<h2>8. 管理员人才检索</h2>
+<ul>
+  <li>管理员必须可以通过自然语言检索员工。</li>
+  <li>系统必须同时支持结构化筛选和 embedding 语义检索。</li>
+  <li>管理员检索只使用员工最后一次有效评估结果。</li>
+  <li>检索结果必须展示员工完整档案信息。</li>
+  <li>检索结果必须展示匹配原因和匹配依据。</li>
+  <li>系统不需要保存人才检索历史记录。</li>
+</ul>
+
+<h2>9. 管理员首页</h2>
+<p>管理员首页定位为企业内部 AI 人才特征分布驾驶舱，采用企业信息系统常用的总览指标、分布分析、重点列表和系统状态结构。</p>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">模块</th><th background-color="light-gray">指标或内容</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>总览指标</td><td>员工总数、已完善档案人数、已完成 AI 评估人数、平均 AI 分数、高分 AI 人才人数。</td></tr>
+    <tr><td>分布分析</td><td>AI 分数区间分布、岗位分布、级别分布、产品能力关键词 Top N、技术栈关键词 Top N、项目经验领域 Top N。</td></tr>
+    <tr><td>重点列表</td><td>高分 AI 人才列表、档案未完善员工列表、未完成 AI 评估员工列表、最近完成 AI 评估员工。</td></tr>
+    <tr><td>系统状态</td><td>最近一次 Excel 导入状态、embedding 索引更新状态、AI 服务调用异常提示。</td></tr>
+  </tbody>
+</table>
+
+<h1>九、页面逻辑</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">页面</th><th background-color="light-gray">角色</th><th background-color="light-gray">页面逻辑</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>登录页</td><td>全部</td><td>管理员可用 admin/admin 登录；员工使用手机号和密码登录。登录后按角色跳转。</td></tr>
+    <tr><td>管理员首页</td><td>管理员</td><td>展示企业内部员工特征分布概览、重点列表和系统状态。</td></tr>
+    <tr><td>员工导入页</td><td>管理员</td><td>上传 Excel，预览新增、覆盖更新、错误行，确认后执行导入。</td></tr>
+    <tr><td>员工列表页</td><td>管理员</td><td>分页展示员工，支持按工号、姓名、手机号、岗位、级别、AI 分数筛选。</td></tr>
+    <tr><td>员工详情页</td><td>管理员</td><td>展示并编辑员工完整档案；展示全部评估记录摘要；默认突出最后一次有效评估结果。</td></tr>
+    <tr><td>人才检索页</td><td>管理员</td><td>输入自然语言需求，展示候选员工完整档案、匹配原因和匹配依据。</td></tr>
+    <tr><td>我的档案</td><td>用户</td><td>员工查看并编辑自己的基础信息、岗位描述和 AI 水平记录。</td></tr>
+    <tr><td>我的 AI 评估</td><td>用户</td><td>员工主动发起新的 10 轮 AI 能力测评任务，完成后生成评估结果。</td></tr>
+    <tr><td>我的评估结果</td><td>用户</td><td>展示所有历史有效评估结果，员工可查看每次完整 Chat 对话。</td></tr>
+  </tbody>
+</table>
+
+<h1>十、数据与索引需求</h1>
+<h2>核心数据对象</h2>
+<ul>
+  <li>用户账号与角色。</li>
+  <li>员工基础档案。</li>
+  <li>员工 AI 水平记录。</li>
+  <li>评估任务。</li>
+  <li>Chat 消息。</li>
+  <li>评估结果。</li>
+  <li>结构化摘要。</li>
+  <li>employee chunks。</li>
+  <li>employee embeddings。</li>
+  <li>Excel 导入任务。</li>
+  <li>AI 审计日志。</li>
+</ul>
+
+<h2>Embedding 规则</h2>
+<ul>
+  <li>Embedding provider 使用 Cloudflare Workers AI @cf/baai/bge-m3。</li>
+  <li>向量存储使用 Supabase Postgres + pgvector。</li>
+  <li>向量维度按 1024 维设计，开发前需实测确认。</li>
+  <li>员工档案、AI 水平记录、结构化摘要、最新有效评估结果进入索引。</li>
+  <li>员工档案或评估结果更新后，系统自动更新索引。</li>
+  <li>管理员不需要手动触发重新生成 embedding。</li>
+</ul>
+
+<h1>十一、非功能需求</h1>
+
+<h2>1. 权限与安全</h2>
+<ul>
+  <li>用户只能访问和编辑自己的档案。</li>
+  <li>管理员可访问和编辑所有员工档案。</li>
+  <li>管理员禁止删除员工。</li>
+  <li>管理员禁止查看员工完整 Chat 对话。</li>
+  <li>服务端必须进行角色和数据权限校验。</li>
+  <li>数据库应使用 RLS 或等效访问控制保护关键数据。</li>
+  <li>API Key、service role key、DeepSeek Key、Cloudflare Token 不得暴露到浏览器。</li>
+</ul>
+
+<h2>2. AI 安全</h2>
+<ul>
+  <li>LLM 不允许自由生成 SQL。</li>
+  <li>管理员检索通过受控结构化查询和向量检索完成。</li>
+  <li>AI 测评必须基于员工档案、AI 水平记录和 10 轮对话内容生成结果。</li>
+  <li>AI 调用、embedding 调用和关键数据访问应记录审计日志。</li>
+</ul>
+
+<h2>3. 性能</h2>
+<ul>
+  <li>员工列表必须支持分页。</li>
+  <li>管理员人才检索默认返回 Top K 候选结果。</li>
+  <li>embedding 更新可异步执行，不阻塞用户保存档案。</li>
+  <li>管理员首页指标应支持合理缓存或按需刷新。</li>
+  <li>AI Chatbox 必须支持流式响应。</li>
+</ul>
+
+<h2>4. 可用性</h2>
+<ul>
+  <li>Excel 导入必须提供清晰错误提示。</li>
+  <li>AI 测评中途退出必须明确提示任务作废。</li>
+  <li>人才检索无结果时必须提供空状态说明。</li>
+  <li>embedding 或 AI 服务异常时，系统应展示可理解的错误提示。</li>
+</ul>
+
+<h2>5. 可扩展性</h2>
+<ul>
+  <li>LLM provider 保留抽象，当前默认 DeepSeek。</li>
+  <li>Embedding provider 保留抽象，当前默认 Cloudflare Workers AI BGE-M3。</li>
+  <li>后续可扩展更多人才标签、报告导出和项目匹配工作流。</li>
+</ul>
+
+<h1>十二、技术方案摘要</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">能力</th><th background-color="light-gray">技术选型</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>前端与服务端</td><td>Next.js App Router</td></tr>
+    <tr><td>数据库</td><td>Supabase Postgres</td></tr>
+    <tr><td>认证</td><td>Supabase Auth 或等效手机号密码认证实现</td></tr>
+    <tr><td>向量存储</td><td>Supabase pgvector</td></tr>
+    <tr><td>部署</td><td>GitHub + Vercel</td></tr>
+    <tr><td>LLM</td><td>DeepSeek deepseek-v4-flash</td></tr>
+    <tr><td>Embedding</td><td>Cloudflare Workers AI @cf/baai/bge-m3</td></tr>
+    <tr><td>AI Chat UI</td><td>Vercel AI SDK</td></tr>
+  </tbody>
+</table>
+
+<h1>十三、验收要点</h1>
+<checkbox done="false">管理员可以使用 admin/admin 登录。</checkbox>
+<checkbox done="false">员工可以使用手机号和初始密码 88888888 登录。</checkbox>
+<checkbox done="false">Excel 导入时工号作为主 ID，手机号必填，重复工号覆盖更新。</checkbox>
+<checkbox done="false">管理员不能删除员工。</checkbox>
+<checkbox done="false">员工可以编辑自己的 AI 水平记录。</checkbox>
+<checkbox done="false">员工可以多次发起 AI 能力测评任务。</checkbox>
+<checkbox done="false">AI 测评必须完成 10 轮对话后才生成结果。</checkbox>
+<checkbox done="false">员工中途退出时评估任务作废，不生成结果。</checkbox>
+<checkbox done="false">员工可以查看所有历史有效评估结果和完整 Chat 对话。</checkbox>
+<checkbox done="false">管理员只能查看最终评估结果和结构化摘要，不能查看完整 Chat 对话。</checkbox>
+<checkbox done="false">管理员检索默认使用员工最后一次有效评估结果。</checkbox>
+<checkbox done="false">管理员检索结果展示员工完整档案、匹配原因和匹配依据。</checkbox>
+<checkbox done="false">员工档案或评估结果更新后系统自动更新 embedding。</checkbox>
+<checkbox done="false">管理员首页展示企业内部员工 AI 人才特征分布概览。</checkbox>

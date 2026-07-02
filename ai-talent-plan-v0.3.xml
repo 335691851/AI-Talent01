@@ -1,0 +1,404 @@
+<title>AI Talent 产品与实施工作规划 v0.3</title>
+
+<h1>一、文档信息</h1>
+<table>
+  <tbody>
+    <tr><td>产品名称</td><td>AI Talent</td></tr>
+    <tr><td>文档版本</td><td>v0.3</td></tr>
+    <tr><td>日期</td><td>2026-07-01</td></tr>
+    <tr><td>目标读者</td><td>产品负责人、企业管理员、研发实现人员</td></tr>
+    <tr><td>当前状态</td><td>核心产品目标、角色权限、员工档案字段、AI 评估方式、管理员检索、RAG 与 embedding 方案已确认</td></tr>
+  </tbody>
+</table>
+
+<h1>二、v0.3 核心结论</h1>
+<p>AI Talent 定位为一个单企业使用的 AI 人才档案、AI 自评估与管理员人才检索系统。系统不做多租户，不做部门级管理权限，不向员工提供检索能力。核心路径是：管理员通过 Excel 导入员工档案，员工登录后补充和修改自己的 AI 水平记录，员工通过 Chatbox 与 LLM 完成 AI 能力评估，管理员基于结构化筛选与 embedding 语义检索发现合适人才。</p>
+
+<h2>已确认范围</h2>
+<ul>
+  <li>只支持一个企业，不提供租户能力。</li>
+  <li>角色只有管理员和用户两种。</li>
+  <li>管理员支持 Excel 批量导入员工档案。</li>
+  <li>管理员和用户都支持编辑员工档案；用户只能编辑自己的档案，管理员可以编辑所有员工档案。</li>
+  <li>用户填写自己的 AI 水平记录，记录分为产品能力、技术栈能力、项目经验三个长文本字段。</li>
+  <li>用户通过 Chatbox 发起 AI 自评估，LLM 进行引导、追问和评估。</li>
+  <li>AI 评估结果只有两个正式结果：百分制分数、长文本评估说明。</li>
+  <li>管理员不能查看完整 Chat 对话，只能查看最终评估结果和结构化摘要。</li>
+  <li>员工不提供检索能力。</li>
+  <li>管理员提供人才检索能力，支持结构化筛选和 embedding 语义检索两种方式。</li>
+  <li>管理员检索结果全面展示员工所有档案信息。</li>
+  <li>LLM 使用 DeepSeek deepseek-v4-flash。</li>
+  <li>Embedding 使用 Cloudflare Workers AI 的 BGE-M3，向量存储使用 Supabase Postgres + pgvector。</li>
+</ul>
+
+<h1>三、产品目标</h1>
+<p>AI Talent 的核心目标是帮助企业建立 AI 人才档案，沉淀员工 AI 能力信息，并通过 AI 评估与语义检索支持企业管理员进行人才发现、项目人员匹配和 AI 能力管理。</p>
+
+<h2>业务目标</h2>
+<ul>
+  <li>让员工低成本录入自己的 AI 能力、技术栈和项目经验。</li>
+  <li>让员工通过 Chatbox 完成 AI 能力自评，获得 AI 能力分数和评估说明。</li>
+  <li>让管理员可以快速找到具备某类 AI 能力、技术经验或项目适配度的员工。</li>
+  <li>让管理员基于完整员工档案和 AI 评估结果进行人才盘点。</li>
+  <li>为后续企业 AI 人才发展、项目组建、培训规划预留数据基础。</li>
+</ul>
+
+<h1>四、角色与权限</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">角色</th><th background-color="light-gray">核心能力</th><th background-color="light-gray">权限边界</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>管理员</td><td>导入员工、编辑员工档案、查看员工完整档案、查看评估结果和结构化摘要、发起人才检索。</td><td>可以访问和编辑所有员工档案；不能查看员工完整 Chat 对话。</td></tr>
+    <tr><td>用户</td><td>查看和编辑自己的档案，填写 AI 水平记录，使用 Chatbox 进行 AI 自评估，查看自己的评估结果和历史记录。</td><td>只能访问自己的档案、完整 Chat 对话和评估结果；不提供人才检索能力。</td></tr>
+  </tbody>
+</table>
+
+<h2>Chat 记录权限</h2>
+<ul>
+  <li>用户可以查看自己的完整 Chat 评估对话。</li>
+  <li>管理员不能查看员工完整 Chat 对话。</li>
+  <li>管理员可以查看员工最终 AI 评估结果、结构化摘要和用于检索的人才档案信息。</li>
+  <li>系统服务端可以使用 Chat 对话生成评估结果、结构化摘要和 embedding 索引。</li>
+</ul>
+
+<h1>五、员工档案设计</h1>
+<p>员工档案由基础信息、岗位信息、AI 水平记录、AI 评估结果、结构化摘要和向量索引共同构成。用户填写体验优先采用少字段、长文本的方式，后台通过 LLM 提取摘要、标签和检索文本。</p>
+
+<h2>基础信息字段</h2>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">字段</th><th background-color="light-gray">说明</th><th background-color="light-gray">录入方式</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>姓名</td><td>员工姓名。</td><td>管理员 Excel 导入，管理员和用户可编辑。</td></tr>
+    <tr><td>邮箱</td><td>登录和员工识别使用，建议第一版作为必填字段。</td><td>管理员 Excel 导入，管理员可编辑。</td></tr>
+    <tr><td>手机号</td><td>可选联系方式。</td><td>管理员 Excel 导入，管理员和用户可编辑。</td></tr>
+    <tr><td>工号</td><td>企业内部员工编号。</td><td>管理员 Excel 导入，管理员可编辑。</td></tr>
+    <tr><td>岗位</td><td>员工当前岗位名称。</td><td>管理员 Excel 导入，管理员和用户可编辑。</td></tr>
+    <tr><td>岗位描述</td><td>岗位职责、核心任务和业务场景。</td><td>管理员导入初始内容，用户登录后可补充修改。</td></tr>
+    <tr><td>级别</td><td>员工职级或岗位级别。</td><td>管理员 Excel 导入，管理员可编辑。</td></tr>
+  </tbody>
+</table>
+
+<h2>AI 水平记录字段</h2>
+<p>AI 水平记录第一版只保留三个长文本字段，降低用户填写负担，同时提高 LLM 摘要和 embedding 检索的表达空间。</p>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">字段</th><th background-color="light-gray">中文名称</th><th background-color="light-gray">填写说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>ai_product_experience</td><td>产品能力</td><td>描述自己使用市场上 AI 产品、AI 系统或 AI 工具完成工作的能力，例如熟练使用 Codex 进行办公、代码生成、文档整理或数据处理。</td></tr>
+    <tr><td>ai_technical_experience</td><td>技术栈能力</td><td>描述自己掌握的框架、语言、模型工程、数据处理、系统开发等 AI 技术相关能力，例如使用 Python 进行数据处理，熟悉 LangChain 并搭建 RAG 或大模型推理系统。</td></tr>
+    <tr><td>ai_project_experience</td><td>项目经验</td><td>描述自己参与过的 AI、数据、自动化、智能系统、算法、模型应用等相关项目经验，例如采用 IoT 技术和强化学习搭建质量视觉分析助手，实现端侧瑕疵识别。</td></tr>
+  </tbody>
+</table>
+
+<h2>进入 embedding 的内容</h2>
+<ul>
+  <li>基础信息：姓名、岗位、岗位描述、级别。</li>
+  <li>AI 水平记录：产品能力、技术栈能力、项目经验。</li>
+  <li>AI 评估结果：百分制分数和长文本评估说明。</li>
+  <li>结构化摘要：能力标签、技术标签、产品工具标签、项目领域标签、适合项目类型等。</li>
+</ul>
+
+<h1>六、Excel 导入方案</h1>
+<p>员工档案第一版通过管理员 Excel 统一导入，用户登录后补充与修正自己的档案。</p>
+
+<h2>导入流程</h2>
+<ol>
+  <li seq="auto">管理员下载或使用标准 Excel 模板。</li>
+  <li seq="auto">管理员填写员工基础信息、岗位信息和可选 AI 水平记录。</li>
+  <li seq="auto">系统解析 Excel，按邮箱或工号识别员工。</li>
+  <li seq="auto">新员工创建档案，已存在员工更新档案。</li>
+  <li seq="auto">导入后员工状态为待完善。</li>
+  <li seq="auto">员工登录后补充产品能力、技术栈能力、项目经验。</li>
+  <li seq="auto">档案保存后触发结构化摘要生成与 embedding 索引更新。</li>
+</ol>
+
+<h2>Excel 模板字段</h2>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">字段</th><th background-color="light-gray">是否建议必填</th><th background-color="light-gray">说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>姓名</td><td>是</td><td>员工姓名。</td></tr>
+    <tr><td>邮箱</td><td>是</td><td>登录账号和唯一识别字段之一。</td></tr>
+    <tr><td>手机号</td><td>否</td><td>联系方式。</td></tr>
+    <tr><td>工号</td><td>否</td><td>企业内部编号，若存在则可作为唯一识别字段之一。</td></tr>
+    <tr><td>岗位</td><td>是</td><td>当前岗位。</td></tr>
+    <tr><td>岗位描述</td><td>否</td><td>岗位职责、核心任务、业务场景。</td></tr>
+    <tr><td>级别</td><td>否</td><td>职级或岗位级别。</td></tr>
+    <tr><td>产品能力</td><td>否</td><td>对应 ai_product_experience。</td></tr>
+    <tr><td>技术栈能力</td><td>否</td><td>对应 ai_technical_experience。</td></tr>
+    <tr><td>项目经验</td><td>否</td><td>对应 ai_project_experience。</td></tr>
+  </tbody>
+</table>
+
+<h1>七、AI 自评估方案</h1>
+<p>AI 自评估由用户在 Chatbox 中发起。LLM 基于用户档案、AI 水平记录和对话中的补充信息进行引导、追问和综合评估。</p>
+
+<h2>评估维度</h2>
+<p>评估维度作为 LLM 内部判断依据，不在第一版中强制展示为多维评分。最终对用户和管理员展示的正式结果只有分数和评估说明。</p>
+<ul>
+  <li>AI 产品使用能力。</li>
+  <li>AI 技术理解能力。</li>
+  <li>AI 项目经验。</li>
+  <li>业务场景结合能力。</li>
+  <li>提示词与任务拆解能力。</li>
+  <li>自动化与工具链能力。</li>
+  <li>AI 风险与合规意识。</li>
+</ul>
+
+<h2>正式评估结果</h2>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">结果</th><th background-color="light-gray">字段建议</th><th background-color="light-gray">说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>AI 能力分数</td><td>ai_score numeric(5,2)</td><td>百分制分数，范围 0-100，用于排序、筛选和管理分析。</td></tr>
+    <tr><td>AI 评估说明</td><td>ai_assessment_summary text</td><td>长文本说明，描述员工 AI 能力、证据、优势、短板、岗位匹配和适合项目类型。</td></tr>
+  </tbody>
+</table>
+
+<h2>评估数据沉淀</h2>
+<ul>
+  <li>完整 Chat 消息只对员工本人可见。</li>
+  <li>最终评估结果对员工本人和管理员可见。</li>
+  <li>结构化摘要对员工本人和管理员可见，并用于管理员检索。</li>
+  <li>评估结果和结构化摘要进入 embedding 索引。</li>
+</ul>
+
+<h1>八、管理员人才检索方案</h1>
+<p>管理员人才检索采用混合检索：结构化筛选 + embedding 语义检索。结构化筛选用于明确条件，embedding 语义检索用于开放式项目需求和能力匹配。</p>
+
+<h2>检索示例</h2>
+<ul>
+  <li>列出企业中有 Python 数据处理能力的员工。</li>
+  <li>找出熟悉 Codex 并能用于办公自动化的人。</li>
+  <li>需要进行质量视觉分析助手项目，推荐合适员工。</li>
+  <li>谁有 IoT、强化学习、端侧识别或视觉检测相关经验。</li>
+  <li>推荐适合搭建大模型推理框架或 RAG 系统的员工。</li>
+</ul>
+
+<h2>检索流程</h2>
+<pre lang="text" caption="管理员混合检索流程"><code>管理员输入自然语言需求
+解析结构化条件，例如分数、级别、岗位、关键词
+生成 query embedding
+在 Supabase pgvector 中进行语义检索
+结合结构化筛选结果和向量相似度排序
+调用 DeepSeek deepseek-v4-flash 生成匹配原因
+前端展示候选员工完整档案、评估结果和匹配说明</code></pre>
+
+<h2>检索结果展示</h2>
+<p>管理员检索结果需要全面展示员工所有档案信息，并展示匹配原因。</p>
+<ul>
+  <li>员工基础信息：姓名、邮箱、手机号、工号、岗位、岗位描述、级别。</li>
+  <li>AI 水平记录：产品能力、技术栈能力、项目经验。</li>
+  <li>AI 评估结果：AI 能力分数、AI 评估说明。</li>
+  <li>结构化摘要：能力标签、技术标签、工具标签、项目领域标签、适合项目类型。</li>
+  <li>匹配说明：为什么该员工适合当前检索需求。</li>
+  <li>匹配依据：命中的档案片段、相关标签、相似度或排序依据。</li>
+</ul>
+
+<h1>九、RAG 与 Embedding 技术方案</h1>
+
+<h2>选型结论</h2>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">能力</th><th background-color="light-gray">选型</th><th background-color="light-gray">说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>LLM</td><td>DeepSeek deepseek-v4-flash</td><td>负责 Chatbox 对话、评估引导、评估说明生成、匹配说明生成。</td></tr>
+    <tr><td>Embedding</td><td>Cloudflare Workers AI @cf/baai/bge-m3</td><td>负责将员工档案、AI 水平记录、评估摘要和管理员检索问题转成向量。</td></tr>
+    <tr><td>向量存储</td><td>Supabase Postgres + pgvector</td><td>负责存储 embedding，并执行向量相似度检索。</td></tr>
+    <tr><td>应用部署</td><td>Vercel</td><td>Next.js 应用仍部署在 Vercel，不需要迁移到 Cloudflare。</td></tr>
+  </tbody>
+</table>
+
+<h2>Cloudflare Workers AI BGE-M3 接入方式</h2>
+<p>第一版不需要单独创建 Cloudflare Worker。Next.js 服务端可以直接调用 Cloudflare Workers AI API 生成 embedding。后续如果需要异步批处理、队列或边缘任务，再考虑增加 Cloudflare Worker。</p>
+<pre lang="text" caption="Embedding 调用链路"><code>员工档案或评估结果更新
+Next.js 服务端生成待索引文本
+调用 Cloudflare Workers AI @cf/baai/bge-m3
+获得 1024 维 dense embedding
+写入 Supabase pgvector
+管理员检索时对 query 生成 embedding
+Supabase 执行向量相似度检索</code></pre>
+
+<h2>向量维度</h2>
+<p>BGE-M3 dense embedding 按 1024 维设计，Supabase pgvector 字段建议使用 vector(1024)。实际开发时应先调用一次 Cloudflare embedding API 校验输出维度，再固定数据库迁移。</p>
+
+<h2>索引粒度</h2>
+<p>第一版采用字段分块索引，而不是把员工全部信息合成一个超长向量。这样管理员检索时更容易命中具体能力来源。</p>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">chunk 类型</th><th background-color="light-gray">内容</th><th background-color="light-gray">用途</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>employee_profile_chunk</td><td>姓名、岗位、岗位描述、级别。</td><td>匹配岗位背景和基础信息。</td></tr>
+    <tr><td>ai_product_chunk</td><td>ai_product_experience。</td><td>匹配 AI 产品和工具使用能力。</td></tr>
+    <tr><td>ai_technical_chunk</td><td>ai_technical_experience。</td><td>匹配技术栈、语言、框架、模型工程能力。</td></tr>
+    <tr><td>ai_project_chunk</td><td>ai_project_experience。</td><td>匹配项目经验、行业场景、技术应用和业务成果。</td></tr>
+    <tr><td>ai_assessment_chunk</td><td>AI 分数、评估说明、结构化摘要。</td><td>匹配评估结论、能力标签和适合项目类型。</td></tr>
+  </tbody>
+</table>
+
+<h2>索引更新策略</h2>
+<ul>
+  <li>员工档案创建或更新后，触发对应 chunk 重新生成 embedding。</li>
+  <li>员工 AI 水平记录更新后，触发产品能力、技术栈能力、项目经验 chunk 更新。</li>
+  <li>AI 评估完成后，触发评估结果和结构化摘要 chunk 更新。</li>
+  <li>第一版可以采用保存后异步更新索引；索引任务失败时记录状态并支持重试。</li>
+</ul>
+
+<h1>十、技术架构</h1>
+
+<h2>基础技术栈</h2>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">层级</th><th background-color="light-gray">技术选型</th><th background-color="light-gray">说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>前端与服务端</td><td>Next.js App Router</td><td>页面、服务端渲染、Server Components、Server Actions、Route Handler。</td></tr>
+    <tr><td>UI</td><td>shadcn/ui + Tailwind</td><td>构建管理后台、员工档案、Chatbox 和检索结果页。</td></tr>
+    <tr><td>数据库</td><td>Supabase Postgres</td><td>存储员工档案、评估结果、Chat 记录、索引任务和向量数据。</td></tr>
+    <tr><td>认证</td><td>Supabase Auth</td><td>支持管理员和用户登录。</td></tr>
+    <tr><td>权限</td><td>应用层权限 + Postgres RLS</td><td>保证用户只能访问自己，管理员访问全部员工，但不能读取完整 Chat 对话。</td></tr>
+    <tr><td>LLM</td><td>DeepSeek deepseek-v4-flash</td><td>用于对话、评估、摘要和匹配说明。</td></tr>
+    <tr><td>Embedding</td><td>Cloudflare Workers AI @cf/baai/bge-m3</td><td>用于员工档案和检索 query 的向量化。</td></tr>
+    <tr><td>部署</td><td>GitHub + Vercel</td><td>代码托管和自动部署。</td></tr>
+  </tbody>
+</table>
+
+<h2>服务端职责划分</h2>
+<ul>
+  <li>Server Components：读取员工列表、员工详情、评估结果、管理员检索页面初始数据。</li>
+  <li>Server Actions：员工档案保存、管理员编辑员工档案、Excel 导入确认、评估结果保存。</li>
+  <li>Route Handler：AI Chat 流式响应、embedding 生成、管理员检索 API、Excel 上传解析。</li>
+  <li>后台任务或任务表：处理 embedding_jobs，记录失败和重试。</li>
+</ul>
+
+<h2>核心调用链</h2>
+<pre lang="text" caption="用户 AI 自评估链路"><code>用户打开我的 AI 评估
+Chatbox 加载用户档案和 AI 水平记录
+用户与 DeepSeek deepseek-v4-flash 对话
+LLM 引导追问并生成评估结果
+系统保存 Chat 消息、AI 分数、评估说明、结构化摘要
+系统生成评估摘要 embedding
+用户查看完整对话和最终结果
+管理员只能查看最终结果和结构化摘要</code></pre>
+
+<pre lang="text" caption="管理员人才检索链路"><code>管理员输入人才需求
+系统解析结构化筛选条件
+系统调用 Cloudflare BGE-M3 生成 query embedding
+Supabase pgvector 检索候选员工 chunk
+系统合并结构化筛选、相似度、AI 分数等排序依据
+DeepSeek 生成匹配说明
+页面展示候选员工完整档案和评估结果</code></pre>
+
+<h1>十一、环境变量</h1>
+<pre lang="text" caption="建议环境变量"><code>NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=
+
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_CHAT_MODEL=deepseek-v4-flash
+AI_PROVIDER=deepseek
+
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-m3
+EMBEDDING_DIMENSIONS=1024
+
+RAG_TOP_K=8
+RAG_SIMILARITY_THRESHOLD=0.75
+AI_CHAT_MAX_STEPS=5
+AI_CHAT_MAX_CONTEXT_CHARS=12000</code></pre>
+
+<h1>十二、核心数据模型草案</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">表名</th><th background-color="light-gray">用途</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>profiles</td><td>Supabase 用户资料，包含角色 admin/user。</td></tr>
+    <tr><td>employees</td><td>员工基础信息、岗位、岗位描述、级别、账号关联。</td></tr>
+    <tr><td>employee_ai_profiles</td><td>AI 水平记录，包含产品能力、技术栈能力、项目经验三个长文本字段。</td></tr>
+    <tr><td>assessment_sessions</td><td>一次 AI 自评估会话主记录。</td></tr>
+    <tr><td>chat_messages</td><td>用户与 AI 的完整 Chat 对话，仅员工本人可读，管理员不可读。</td></tr>
+    <tr><td>assessment_results</td><td>AI 能力分数和 AI 评估说明。</td></tr>
+    <tr><td>assessment_summaries</td><td>结构化摘要、能力标签、技术标签、工具标签、项目领域标签、适合项目类型。</td></tr>
+    <tr><td>employee_chunks</td><td>员工档案、AI 水平记录、评估结果的检索文本分块。</td></tr>
+    <tr><td>employee_embeddings</td><td>每个 chunk 对应的 embedding，使用 vector(1024)。</td></tr>
+    <tr><td>embedding_jobs</td><td>待处理、处理中、失败、完成的索引任务。</td></tr>
+    <tr><td>admin_search_sessions</td><td>管理员检索记录。</td></tr>
+    <tr><td>admin_search_results</td><td>管理员检索命中结果、相似度、匹配说明和排序依据。</td></tr>
+    <tr><td>excel_import_jobs</td><td>Excel 导入任务、导入结果、错误行和处理状态。</td></tr>
+    <tr><td>ai_audit_logs</td><td>AI 调用、embedding 调用、检索调用和数据访问审计。</td></tr>
+  </tbody>
+</table>
+
+<h1>十三、页面规划</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">页面</th><th background-color="light-gray">角色</th><th background-color="light-gray">核心能力</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>登录页</td><td>管理员、用户</td><td>Supabase Auth 登录。</td></tr>
+    <tr><td>管理员首页</td><td>管理员</td><td>查看员工总数、已完善档案数、已完成评估数、入口导航。</td></tr>
+    <tr><td>员工导入页</td><td>管理员</td><td>下载模板、上传 Excel、预览导入结果、确认导入。</td></tr>
+    <tr><td>员工列表页</td><td>管理员</td><td>查看所有员工档案状态、AI 分数、是否完成评估。</td></tr>
+    <tr><td>员工详情页</td><td>管理员</td><td>查看和编辑员工完整档案、AI 评估结果、结构化摘要。</td></tr>
+    <tr><td>人才检索页</td><td>管理员</td><td>自然语言检索、结构化筛选、查看完整员工档案和匹配说明。</td></tr>
+    <tr><td>我的档案</td><td>用户</td><td>查看和编辑自己的基础信息、岗位描述、AI 水平记录。</td></tr>
+    <tr><td>我的 AI 评估</td><td>用户</td><td>通过 Chatbox 发起 AI 自评估，查看完整对话。</td></tr>
+    <tr><td>我的评估结果</td><td>用户</td><td>查看 AI 分数、评估说明和历史评估记录。</td></tr>
+  </tbody>
+</table>
+
+<h1>十四、实施路径</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">阶段</th><th background-color="light-gray">目标</th><th background-color="light-gray">主要产出</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>第 1 阶段：项目底座</td><td>搭建 Next.js、Supabase、Auth、角色权限、基础布局。</td><td>项目骨架、登录、管理员/用户路由、RLS 初版。</td></tr>
+    <tr><td>第 2 阶段：员工档案与 Excel 导入</td><td>实现管理员导入和员工档案编辑。</td><td>Excel 模板、导入任务、员工列表、员工详情、我的档案。</td></tr>
+    <tr><td>第 3 阶段：AI 自评估 Chatbox</td><td>实现用户与 DeepSeek 的流式评估对话和结果生成。</td><td>Chatbox、Chat API、评估结果保存、结构化摘要。</td></tr>
+    <tr><td>第 4 阶段：Embedding 与索引</td><td>接入 Cloudflare BGE-M3，建立 Supabase pgvector 检索索引。</td><td>employee_chunks、employee_embeddings、embedding_jobs、索引更新机制。</td></tr>
+    <tr><td>第 5 阶段：管理员混合检索</td><td>实现结构化筛选 + embedding 语义检索。</td><td>人才检索页、候选员工排序、匹配说明、完整档案展示。</td></tr>
+    <tr><td>第 6 阶段：验证与上线</td><td>完成权限、数据导入、Chat、检索和索引更新的端到端验证。</td><td>上线版本、测试数据、部署配置、验收清单。</td></tr>
+  </tbody>
+</table>
+
+<h1>十五、上线前确认清单</h1>
+<checkbox done="false">准备 Supabase 项目和数据库连接信息。</checkbox>
+<checkbox done="false">准备 Vercel 项目和 GitHub 仓库。</checkbox>
+<checkbox done="false">准备 DeepSeek API Key。</checkbox>
+<checkbox done="false">准备 Cloudflare Account ID 和 Workers AI API Token。</checkbox>
+<checkbox done="false">确认 Excel 导入模板的最终字段名称。</checkbox>
+<checkbox done="false">确认管理员初始账号创建方式。</checkbox>
+<checkbox done="false">确认是否使用邮箱作为员工唯一登录标识。</checkbox>
+<checkbox done="false">完成 Cloudflare BGE-M3 embedding 输出维度实测，并固定 vector(1024) 迁移。</checkbox>
+<checkbox done="false">完成 Chat 记录权限验证，确保管理员不能读取完整对话。</checkbox>
+<checkbox done="false">完成管理员检索端到端验证，确保能展示完整员工档案。</checkbox>
+
+<h1>十六、v0.3 变更摘要</h1>
+<ul>
+  <li>从通用企业 AI 人才管理方案收敛为单企业、双角色系统。</li>
+  <li>明确不做多租户，不做部门级管理权限。</li>
+  <li>明确员工不提供检索能力。</li>
+  <li>明确管理员通过 Excel 统一导入员工档案，用户登录后可编辑。</li>
+  <li>AI 水平记录正式收敛为三个长文本字段：产品能力、技术栈能力、项目经验。</li>
+  <li>AI 评估结果正式收敛为两个结果：百分制分数、长文本评估说明。</li>
+  <li>明确管理员不能查看员工完整 Chat 对话，只能查看最终评估结果和结构化摘要。</li>
+  <li>明确管理员人才检索使用结构化筛选 + embedding 语义检索。</li>
+  <li>明确管理员检索结果展示员工完整档案和匹配说明。</li>
+  <li>明确 LLM 使用 DeepSeek deepseek-v4-flash。</li>
+  <li>明确 embedding provider 使用 Cloudflare Workers AI @cf/baai/bge-m3。</li>
+  <li>明确向量存储使用 Supabase Postgres + pgvector，第一版按 vector(1024) 设计。</li>
+  <li>补充了核心数据模型、页面规划、实施路径和上线前确认清单。</li>
+</ul>

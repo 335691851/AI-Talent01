@@ -1,0 +1,742 @@
+<title>AI Talent 详细开发设计说明书 v0.1</title>
+
+<h1>一、文档目标</h1>
+<p>本文档用于指导 AI Talent 第一版应用进入详细开发阶段，明确系统边界、技术架构、数据库设计、API 与 Server Actions、员工 AI 自评估 Chatbox 技术方案、Embedding 与人才检索方案、本机环境准备、环境变量存放方式以及 Vercel 部署架构。</p>
+
+<callout emoji="✅" background-color="light-green" border-color="green" text-color="green">
+  <p>已确认：Chatbox 正式采用 Vercel AI SDK；Supabase migration 由我设计并初始化；Excel 模板字段按现有员工 AI 档案字段固定。</p>
+</callout>
+
+<h1>二、第一版开发边界</h1>
+<h2>2.1 必须完成</h2>
+<ul>
+  <li>登录：管理员与员工两类角色。</li>
+  <li>管理员初始账号：admin / admin。</li>
+  <li>员工登录：手机号 + 初始密码 88888888。</li>
+  <li>员工档案：基础信息、岗位、岗位描述、级别、产品能力、技术栈能力、项目经验。</li>
+  <li>Excel 导入：管理员统一导入，工号作为主 ID，手机号必填，重复工号覆盖更新。</li>
+  <li>AI 自评估 Chatbox：员工主动发起，AI 主动引导，固定 10 轮。</li>
+  <li>AI 评估结果：百分制分数 + 长文本评估说明 + 结构化摘要。</li>
+  <li>Embedding：员工档案和最新有效评估写入 Supabase pgvector。</li>
+  <li>管理员人才检索：结构化过滤 + embedding 语义检索。</li>
+  <li>管理员首页：企业内部员工 AI 能力分布概览。</li>
+</ul>
+
+<h2>2.2 第一版暂不做</h2>
+<ul>
+  <li>多企业租户。</li>
+  <li>部门级权限。</li>
+  <li>短信验证码登录。</li>
+  <li>管理员删除员工。</li>
+  <li>人才检索历史保存。</li>
+  <li>管理员查看完整 AI 自评估对话记录。</li>
+</ul>
+
+<h1>三、总体技术架构</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">层级</th>
+      <th background-color="light-gray">技术方案</th>
+      <th background-color="light-gray">说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>前端与后端</td>
+      <td>Next.js App Router</td>
+      <td>页面、Server Components、Server Actions、Route Handler 均在同一项目中实现。</td>
+    </tr>
+    <tr>
+      <td>Chatbox</td>
+      <td>Vercel AI SDK</td>
+      <td>参考 vercel/chatbot 的流式响应思路，但不直接 fork 整个模板。</td>
+    </tr>
+    <tr>
+      <td>LLM</td>
+      <td>DeepSeek deepseek-v4-flash</td>
+      <td>通过服务端 OpenAI-compatible provider 调用，不暴露 Key 到浏览器。</td>
+    </tr>
+    <tr>
+      <td>数据库</td>
+      <td>Supabase Postgres</td>
+      <td>存储员工、账号、评估任务、评估结果、导入批次。</td>
+    </tr>
+    <tr>
+      <td>向量检索</td>
+      <td>Supabase pgvector</td>
+      <td>存储员工档案与最新评估的 embedding。</td>
+    </tr>
+    <tr>
+      <td>Embedding</td>
+      <td>Cloudflare Workers AI @cf/baai/bge-m3</td>
+      <td>服务端调用 REST API，写入 vector(1024)。</td>
+    </tr>
+    <tr>
+      <td>部署</td>
+      <td>GitHub + Vercel + Supabase</td>
+      <td>GitHub 管理代码，Vercel 自动构建部署，Supabase 管理数据库。</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3.1 部署调用关系</h2>
+<pre lang="text" caption="部署架构"><code>GitHub Repo
+  -> Vercel Next.js App
+    -> Supabase Postgres + pgvector
+    -> DeepSeek deepseek-v4-flash
+    -> Cloudflare Workers AI bge-m3
+
+Browser
+  -> Vercel Next.js App
+    -> Server Components / Server Actions
+    -> Route Handlers for streaming and upload</code></pre>
+
+<h1>四、数据库设计</h1>
+<h2>4.1 核心表</h2>
+<ul>
+  <li>app_users：系统登录账号。</li>
+  <li>employees：员工基础档案。</li>
+  <li>employee_ai_profiles：员工 AI 水平记录。</li>
+  <li>assessment_sessions：AI 自评估任务。</li>
+  <li>assessment_messages：员工自评估完整对话，仅员工本人可见。</li>
+  <li>assessment_results：最终评估结果，管理员和检索使用。</li>
+  <li>employee_embeddings：员工档案和评估内容的向量索引。</li>
+  <li>import_batches：Excel 导入批次。</li>
+  <li>import_rows：Excel 导入行级校验结果。</li>
+</ul>
+
+<h2>4.2 关系结构</h2>
+<pre lang="text" caption="数据关系"><code>app_users 1 -> 0..1 employees
+employees 1 -> 1 employee_ai_profiles
+employees 1 -> n assessment_sessions
+assessment_sessions 1 -> n assessment_messages
+assessment_sessions 1 -> 0..1 assessment_results
+employees 1 -> n employee_embeddings
+import_batches 1 -> n import_rows</code></pre>
+
+<h2>4.3 Migration SQL 初稿</h2>
+<pre lang="sql" caption="扩展与枚举"><code>create extension if not exists vector;
+create extension if not exists pgcrypto;
+
+create type user_role as enum ('admin', 'employee');
+create type user_status as enum ('active', 'disabled');
+create type assessment_status as enum ('in_progress', 'completed', 'abandoned');
+create type message_role as enum ('system', 'assistant', 'user');</code></pre>
+
+<pre lang="sql" caption="账号与员工表"><code>create table app_users (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid,
+  username text unique,
+  phone text unique,
+  password_hash text not null,
+  role user_role not null,
+  status user_status not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table employees (
+  id uuid primary key default gen_random_uuid(),
+  employee_no text not null unique,
+  name text not null,
+  phone text not null unique,
+  email text,
+  position text,
+  position_description text,
+  level text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table app_users
+  add constraint app_users_employee_fk
+  foreign key (employee_id) references employees(id);</code></pre>
+
+<pre lang="sql" caption="AI 档案与评估表"><code>create table employee_ai_profiles (
+  employee_id uuid primary key references employees(id),
+  product_ability text,
+  technical_ability text,
+  project_experience text,
+  profile_completion int not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+create table assessment_sessions (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references employees(id),
+  status assessment_status not null default 'in_progress',
+  current_round int not null default 0,
+  total_rounds int not null default 10,
+  started_at timestamptz not null default now(),
+  completed_at timestamptz,
+  abandoned_at timestamptz,
+  abandoned_reason text
+);
+
+create table assessment_messages (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references assessment_sessions(id),
+  round_no int not null,
+  role message_role not null,
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
+create table assessment_results (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null unique references assessment_sessions(id),
+  employee_id uuid not null references employees(id),
+  score int not null check (score &gt;= 0 and score &lt;= 100),
+  assessment_explanation text not null,
+  structured_summary jsonb not null default '{}'::jsonb,
+  is_latest boolean not null default false,
+  created_at timestamptz not null default now()
+);</code></pre>
+
+<pre lang="sql" caption="Embedding 与导入表"><code>create table employee_embeddings (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references employees(id),
+  chunk_type text not null,
+  content text not null,
+  embedding vector(1024) not null,
+  source_updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table import_batches (
+  id uuid primary key default gen_random_uuid(),
+  file_name text not null,
+  imported_by uuid references app_users(id),
+  status text not null default 'parsed',
+  total_rows int not null default 0,
+  success_rows int not null default 0,
+  failed_rows int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table import_rows (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid not null references import_batches(id),
+  row_no int not null,
+  employee_no text,
+  raw_data jsonb not null,
+  status text not null,
+  error_message text,
+  created_at timestamptz not null default now()
+);</code></pre>
+
+<pre lang="sql" caption="索引"><code>create index idx_employees_employee_no on employees(employee_no);
+create index idx_employees_phone on employees(phone);
+create index idx_assessment_sessions_employee on assessment_sessions(employee_id);
+create index idx_assessment_results_employee_latest on assessment_results(employee_id, is_latest);
+create index idx_employee_embeddings_employee on employee_embeddings(employee_id);
+create index idx_employee_embeddings_vector on employee_embeddings
+using ivfflat (embedding vector_cosine_ops)
+with (lists = 100);</code></pre>
+
+<h1>五、API 与 Server Actions 设计</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">模块</th>
+      <th background-color="light-gray">类型</th>
+      <th background-color="light-gray">名称 / 路径</th>
+      <th background-color="light-gray">用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>登录</td><td>Server Action</td><td>loginAction</td><td>管理员和员工登录。</td></tr>
+    <tr><td>退出</td><td>Server Action</td><td>logoutAction</td><td>清理 session。</td></tr>
+    <tr><td>员工档案</td><td>Server Action</td><td>updateEmployeeAction</td><td>管理员编辑员工档案。</td></tr>
+    <tr><td>我的档案</td><td>Server Action</td><td>updateMyProfileAction</td><td>员工编辑自己的 AI 档案。</td></tr>
+    <tr><td>Excel 导入解析</td><td>Route Handler</td><td>POST /api/import/employees</td><td>上传并解析 Excel，生成导入预览。</td></tr>
+    <tr><td>导入确认</td><td>Server Action</td><td>confirmImportBatchAction</td><td>按校验结果新增或覆盖员工。</td></tr>
+    <tr><td>开始评估</td><td>Server Action</td><td>startAssessmentAction</td><td>创建员工 AI 自评估任务。</td></tr>
+    <tr><td>Chat 流式响应</td><td>Route Handler</td><td>POST /api/assessment/chat</td><td>调用 DeepSeek，返回流式对话。</td></tr>
+    <tr><td>放弃评估</td><td>Server Action</td><td>abandonAssessmentAction</td><td>10 轮前退出，任务作废。</td></tr>
+    <tr><td>人才检索</td><td>Route Handler / Server Action</td><td>POST /api/talent/search</td><td>结构化过滤 + 语义检索。</td></tr>
+    <tr><td>Embedding</td><td>Server Function</td><td>generateEmployeeEmbeddings</td><td>档案或评估更新后重建向量。</td></tr>
+  </tbody>
+</table>
+
+<h2>5.1 推荐代码结构</h2>
+<pre lang="text" caption="代码结构"><code>src/app/actions/auth.ts
+src/app/actions/employees.ts
+src/app/actions/assessment.ts
+src/app/actions/search.ts
+src/app/api/assessment/chat/route.ts
+src/app/api/import/employees/route.ts
+src/app/api/talent/search/route.ts
+src/lib/ai/deepseek.ts
+src/lib/ai/embedding.ts
+src/lib/db/server.ts
+src/lib/auth/session.ts
+src/lib/import/excel.ts
+src/lib/search/talent.ts
+supabase/migrations/</code></pre>
+
+<h1>六、员工 AI 自评估 Chatbox 详细技术方案</h1>
+<h2>6.1 状态机</h2>
+<pre lang="text" caption="评估状态机"><code>draft or none
+  -> in_progress: 员工点击开始评估
+  -> completed: 完成 10 轮并生成评估结果
+  -> abandoned: 10 轮前退出或主动放弃
+
+completed 和 abandoned 均为终态。
+员工允许重复发起新的评估任务。</code></pre>
+
+<h2>6.2 业务规则</h2>
+<ul>
+  <li>员工可以主动多次发起 AI 自评估任务。</li>
+  <li>每个员工同一时间只允许存在一个 in_progress 任务。</li>
+  <li>AI 主动提问，员工逐轮回答。</li>
+  <li>固定 10 轮，10 轮前不生成结果。</li>
+  <li>中途退出则任务作废，不产生最终评估结果。</li>
+  <li>第 10 轮员工回答完成后，生成最终 score、assessment_explanation、structured_summary。</li>
+  <li>员工可以查看自己的完整对话和所有历史评估。</li>
+  <li>管理员只能查看最终评估结果和结构化摘要，不能查看完整对话。</li>
+  <li>管理员视图和人才检索只使用最新有效评估结果。</li>
+</ul>
+
+<h2>6.3 调用链</h2>
+<pre lang="text" caption="Chatbox 调用链"><code>Employee Browser
+  -> startAssessmentAction
+    -> create assessment_sessions
+    -> read employee profile
+    -> generate first assistant question
+    -> save assessment_messages
+
+Employee Browser
+  -> POST /api/assessment/chat
+    -> validate session ownership and round
+    -> save user message
+    -> call DeepSeek by Vercel AI SDK streamText
+    -> stream assistant response to browser
+    -> save assistant message
+    -> update current_round
+    -> if round 10 completed: finalize result
+    -> generate employee embeddings</code></pre>
+
+<h2>6.4 Route Handler 设计</h2>
+<pre lang="ts" caption="/api/assessment/chat 伪代码"><code>export const maxDuration = 60;
+
+export async function POST(request: Request) {
+  const { sessionId, message } = await request.json();
+
+  const user = await requireEmployeeSession();
+  const session = await getAssessmentSession(sessionId);
+
+  assertSessionBelongsToEmployee(session, user.employeeId);
+  assertSessionInProgress(session);
+  assertRoundLessOrEqualTen(session);
+
+  await saveAssessmentMessage({
+    sessionId,
+    roundNo: session.current_round,
+    role: 'user',
+    content: message,
+  });
+
+  if (session.current_round &lt; 10) {
+    return streamNextQuestion(sessionId);
+  }
+
+  return streamFinalAssessmentResult(sessionId);
+}</code></pre>
+
+<h2>6.5 Vercel AI SDK 与 DeepSeek 调用</h2>
+<pre lang="ts" caption="DeepSeek provider"><code>import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+
+export const deepseek = createOpenAICompatible({
+  name: 'deepseek',
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
+});</code></pre>
+
+<pre lang="ts" caption="streamText 调用"><code>import { streamText } from 'ai';
+import { deepseek } from '@/lib/ai/deepseek';
+
+const result = streamText({
+  model: deepseek.chatModel(process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash'),
+  messages,
+});
+
+return result.toUIMessageStreamResponse();</code></pre>
+
+<h2>6.6 10 轮问题设计</h2>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">轮次</th>
+      <th background-color="light-gray">评估目标</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>AI 产品使用经验。</td></tr>
+    <tr><td>2</td><td>AI 产品用于工作提效的深度。</td></tr>
+    <tr><td>3</td><td>技术栈能力。</td></tr>
+    <tr><td>4</td><td>AI 工程理解与实现能力。</td></tr>
+    <tr><td>5</td><td>项目经验真实性和复杂度。</td></tr>
+    <tr><td>6</td><td>项目中个人贡献。</td></tr>
+    <tr><td>7</td><td>业务场景拆解能力。</td></tr>
+    <tr><td>8</td><td>Prompt、任务拆解和自动化能力。</td></tr>
+    <tr><td>9</td><td>风险、合规、可靠性意识。</td></tr>
+    <tr><td>10</td><td>综合追问和能力收束。</td></tr>
+  </tbody>
+</table>
+
+<h2>6.7 系统 Prompt 摘要</h2>
+<pre lang="text" caption="评估官系统 Prompt"><code>你是企业 AI 人才评估官。
+你的任务是通过 10 轮对话评估员工 AI 能力。
+你必须主动提问，每轮只提出一个核心问题。
+你不能在前 10 轮中输出最终分数。
+你需要结合员工档案、岗位、岗位描述、产品能力、技术栈能力、项目经验和历史回答继续追问。
+第 10 轮员工回答完成后，输出最终 JSON 评估结果。</code></pre>
+
+<h2>6.8 最终结果 JSON</h2>
+<pre lang="json" caption="评估结果格式"><code>{
+  "score": 88,
+  "assessment_explanation": "长文本评估说明",
+  "structured_summary": {
+    "product_ability": "AI 产品使用能力摘要",
+    "technical_ability": "技术栈能力摘要",
+    "project_experience": "项目经验摘要",
+    "business_fit": "业务结合能力摘要",
+    "prompt_and_workflow": "提示词和任务拆解能力摘要",
+    "risk_awareness": "风险与合规意识摘要",
+    "recommended_roles": ["AI 办公提效负责人", "RAG 产品方案负责人"]
+  }
+}</code></pre>
+
+<h2>6.9 评分标准</h2>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">分数</th>
+      <th background-color="light-gray">等级</th>
+      <th background-color="light-gray">含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>0-59</td><td>AI 基础薄弱</td><td>仅有零散体验，难以独立完成 AI 工作任务。</td></tr>
+    <tr><td>60-74</td><td>AI 入门应用</td><td>能使用常见 AI 产品完成基础任务。</td></tr>
+    <tr><td>75-84</td><td>AI 熟练应用</td><td>能稳定将 AI 用于岗位工作。</td></tr>
+    <tr><td>85-94</td><td>AI 复合能力</td><td>能结合业务、技术或项目推动 AI 落地。</td></tr>
+    <tr><td>95-100</td><td>AI 高潜专家</td><td>具备复杂 AI 项目设计、实现或带教能力。</td></tr>
+  </tbody>
+</table>
+
+<h1>七、Excel 模板字段与导入规则</h1>
+<h2>7.1 固定字段</h2>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">字段</th>
+      <th background-color="light-gray">必填</th>
+      <th background-color="light-gray">说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>工号</td><td>是</td><td>员工主 ID，唯一标识。</td></tr>
+    <tr><td>姓名</td><td>是</td><td>员工姓名。</td></tr>
+    <tr><td>手机号</td><td>是</td><td>员工登录账号，必须唯一。</td></tr>
+    <tr><td>邮箱</td><td>否</td><td>可为空。</td></tr>
+    <tr><td>岗位</td><td>否</td><td>例如产品经理、算法工程师。</td></tr>
+    <tr><td>岗位描述</td><td>否</td><td>长文本。</td></tr>
+    <tr><td>级别</td><td>否</td><td>例如 P5、P6、P7。</td></tr>
+    <tr><td>产品能力</td><td>否</td><td>一个长文本字段。</td></tr>
+    <tr><td>技术栈能力</td><td>否</td><td>一个长文本字段。</td></tr>
+    <tr><td>项目经验</td><td>否</td><td>一个长文本字段。</td></tr>
+  </tbody>
+</table>
+
+<h2>7.2 校验规则</h2>
+<ul>
+  <li>工号为空：拒绝导入。</li>
+  <li>手机号为空：拒绝导入。</li>
+  <li>姓名为空：拒绝导入。</li>
+  <li>工号已存在：覆盖更新。</li>
+  <li>手机号已存在但对应不同工号：拒绝导入。</li>
+  <li>不允许通过 Excel 删除员工。</li>
+  <li>导入成功后，若员工账号不存在，自动创建员工账号。</li>
+  <li>员工初始密码为 88888888。</li>
+  <li>密码必须 hash 入库，不存明文。</li>
+</ul>
+
+<h1>八、Embedding 与人才检索设计</h1>
+<h2>8.1 Embedding 内容来源</h2>
+<ul>
+  <li>基础信息：岗位、岗位描述、级别。</li>
+  <li>AI 水平记录：产品能力、技术栈能力、项目经验。</li>
+  <li>最新有效 AI 评估：分数、评估说明、结构化摘要。</li>
+</ul>
+
+<h2>8.2 Chunk 类型</h2>
+<ul>
+  <li>profile</li>
+  <li>product_ability</li>
+  <li>technical_ability</li>
+  <li>project_experience</li>
+  <li>latest_assessment</li>
+</ul>
+
+<h2>8.3 Cloudflare Workers AI 调用</h2>
+<pre lang="http" caption="Embedding REST API"><code>POST https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/baai/bge-m3
+Authorization: Bearer {CLOUDFLARE_API_TOKEN}
+Content-Type: application/json</code></pre>
+
+<pre lang="json" caption="Embedding 请求体"><code>{
+  "text": [
+    "员工岗位、岗位描述、AI 产品能力、技术栈能力、项目经验、最新评估摘要"
+  ]
+}</code></pre>
+
+<callout emoji="⚠️" background-color="light-yellow" border-color="yellow" text-color="yellow">
+  <p>设计采用 vector(1024)。开发时需用一次真实 Cloudflare Workers AI 调用做 smoke test，确认 @cf/baai/bge-m3 当前返回维度后再最终锁定 migration。</p>
+</callout>
+
+<h2>8.4 人才检索流程</h2>
+<pre lang="text" caption="人才检索流程"><code>管理员输入自然语言 query
+  -> 生成 query embedding
+  -> 根据岗位、级别、分数进行结构化过滤
+  -> 使用 pgvector 做语义召回
+  -> 融合结构化分、语义相似度、最新 AI 分数
+  -> 返回完整员工档案、评估说明、匹配原因和证据片段</code></pre>
+
+<h2>8.5 检索输入</h2>
+<pre lang="ts" caption="TalentSearchInput"><code>type TalentSearchInput = {
+  query: string;
+  position?: string;
+  level?: string;
+  minScore?: number;
+  maxScore?: number;
+  keyword?: string;
+};</code></pre>
+
+<h2>8.6 SQL 方向</h2>
+<pre lang="sql" caption="结构化过滤"><code>select e.*
+from employees e
+left join assessment_results ar
+  on ar.employee_id = e.id and ar.is_latest = true
+where
+  ($1::text is null or e.position = $1)
+  and ($2::text is null or e.level = $2)
+  and ($3::int is null or ar.score &gt;= $3)
+  and ($4::int is null or ar.score &lt;= $4);</code></pre>
+
+<pre lang="sql" caption="向量召回"><code>select
+  ee.employee_id,
+  max(1 - (ee.embedding &lt;=&gt; $1::vector)) as similarity,
+  array_agg(distinct ee.chunk_type) as matched_chunk_types
+from employee_embeddings ee
+group by ee.employee_id
+order by max(1 - (ee.embedding &lt;=&gt; $1::vector)) desc
+limit $2;</code></pre>
+
+<h2>8.7 检索结果展示</h2>
+<ul>
+  <li>员工基础信息。</li>
+  <li>岗位与岗位描述。</li>
+  <li>产品能力。</li>
+  <li>技术栈能力。</li>
+  <li>项目经验。</li>
+  <li>最新 AI 分数。</li>
+  <li>最新评估说明。</li>
+  <li>结构化摘要。</li>
+  <li>匹配原因。</li>
+  <li>命中证据片段。</li>
+</ul>
+
+<h1>九、页面到接口映射</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">页面</th>
+      <th background-color="light-gray">数据读取</th>
+      <th background-color="light-gray">写入动作</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>登录页</td><td>无</td><td>loginAction</td></tr>
+    <tr><td>管理员首页</td><td>Server Component 查询 dashboard stats</td><td>无</td></tr>
+    <tr><td>员工档案页</td><td>查询 employees + latest assessment</td><td>updateEmployeeAction</td></tr>
+    <tr><td>我的档案页</td><td>查询当前员工档案</td><td>updateMyProfileAction</td></tr>
+    <tr><td>AI 自评估页</td><td>查询 session、messages、history</td><td>startAssessmentAction、POST /api/assessment/chat、abandonAssessmentAction</td></tr>
+    <tr><td>人才检索页</td><td>初始无数据</td><td>POST /api/talent/search</td></tr>
+    <tr><td>Excel 导入页</td><td>查询 import batches</td><td>POST /api/import/employees、confirmImportBatchAction</td></tr>
+    <tr><td>系统设置页</td><td>查询环境状态，不显示密钥</td><td>无</td></tr>
+  </tbody>
+</table>
+
+<h1>十、环境变量与参数存放</h1>
+<h2>10.1 本机开发</h2>
+<p>本机参数统一放在项目根目录 <code>.env.local</code>。该文件不提交 Git，当前 <code>.gitignore</code> 已覆盖 <code>.env*</code>。</p>
+
+<h2>10.2 线上部署</h2>
+<p>线上参数统一放在 Vercel Project Settings - Environment Variables。按 Development、Preview、Production 分环境配置。</p>
+
+<callout emoji="⚠️" background-color="light-yellow" border-color="yellow" text-color="yellow">
+  <p>所有密钥类变量不要添加 NEXT_PUBLIC_ 前缀，包括 SUPABASE_SERVICE_ROLE_KEY、DEEPSEEK_API_KEY、CLOUDFLARE_API_TOKEN。浏览器不能直接读取这些值。</p>
+</callout>
+
+<h2>10.3 环境变量清单</h2>
+<pre lang="env" caption=".env.local / Vercel Environment Variables"><code>APP_URL=
+NEXT_PUBLIC_APP_NAME=AI Talent
+
+DATABASE_URL=
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-m3
+CLOUDFLARE_EMBEDDING_DIMENSIONS=1024
+
+ADMIN_USERNAME=admin
+ADMIN_INITIAL_PASSWORD=admin
+DEFAULT_EMPLOYEE_PASSWORD=88888888
+
+AI_ASSESSMENT_TOTAL_ROUNDS=10
+AI_STREAM_MAX_DURATION=60
+RAG_TOP_K=8
+RAG_MIN_SCORE=0.35</code></pre>
+
+<h1>十一、本机环境准备与启动步骤</h1>
+<h2>11.1 必须准备</h2>
+<ul>
+  <li>Node.js 20.9+，建议 Node 22+。</li>
+  <li>npm。</li>
+  <li>Git。</li>
+  <li>Supabase 云项目。</li>
+  <li>DeepSeek API Key。</li>
+  <li>Cloudflare Account ID + Workers AI API Token。</li>
+  <li>项目根目录 <code>.env.local</code>。</li>
+</ul>
+
+<h2>11.2 不强制需要</h2>
+<ul>
+  <li>Docker：如果直接连接 Supabase 云数据库，本机第一版不需要 Docker。</li>
+  <li>本地 Postgres：第一版可直接使用 Supabase 云数据库。</li>
+  <li>Vercel CLI：非必须，可后续用于模拟线上环境。</li>
+</ul>
+
+<h2>11.3 本机启动命令</h2>
+<pre lang="bash" caption="本机启动"><code>npm install
+npm run dev</code></pre>
+
+<h2>11.4 数据库初始化</h2>
+<p>推荐两种方式之一：</p>
+<ul>
+  <li>方式 A：安装 Supabase CLI 后执行 <code>npx supabase db push</code>。</li>
+  <li>方式 B：由我通过 <code>DATABASE_URL</code> 执行 migration。</li>
+</ul>
+
+<h2>11.5 本机验证项</h2>
+<ul>
+  <li>管理员可以登录。</li>
+  <li>Excel 可以导入员工。</li>
+  <li>员工可以登录。</li>
+  <li>员工可以编辑自己的 AI 档案。</li>
+  <li>Chatbox 可以完成 10 轮。</li>
+  <li>DeepSeek 可以流式返回。</li>
+  <li>第 10 轮可以生成评估结果。</li>
+  <li>Cloudflare embedding 可以写入 pgvector。</li>
+  <li>管理员可以检索人才。</li>
+</ul>
+
+<h1>十二、Vercel 部署设计</h1>
+<h2>12.1 部署流程</h2>
+<pre lang="text" caption="Vercel 部署流程"><code>GitHub push
+  -> Vercel build
+  -> npm install
+  -> npm run build
+  -> read Vercel Environment Variables
+  -> deploy Next.js App
+  -> production URL</code></pre>
+
+<h2>12.2 Vercel 项目配置</h2>
+<ul>
+  <li>Framework：Next.js。</li>
+  <li>Install Command：npm install。</li>
+  <li>Build Command：npm run build。</li>
+  <li>Output：默认。</li>
+  <li>Node.js：建议 22+。</li>
+  <li>Environment Variables：在 Project Settings 中配置。</li>
+</ul>
+
+<h2>12.3 上线验证</h2>
+<ul>
+  <li><code>/login</code> 正常访问。</li>
+  <li>管理员登录成功。</li>
+  <li>数据库连接成功。</li>
+  <li>DeepSeek 调用成功。</li>
+  <li>Cloudflare embedding 调用成功。</li>
+  <li>Excel 导入成功。</li>
+  <li>AI 自评估完成 10 轮并生成结果。</li>
+  <li>人才检索成功。</li>
+</ul>
+
+<h1>十三、安全与权限边界</h1>
+<ul>
+  <li>密码必须 hash 后存储，不保存明文。</li>
+  <li>Service Role Key 仅服务端使用。</li>
+  <li>DeepSeek API Key 仅服务端使用。</li>
+  <li>Cloudflare API Token 仅服务端使用。</li>
+  <li>员工只能访问自己的档案、评估任务、完整对话和历史结果。</li>
+  <li>管理员可以编辑员工档案，但不能删除员工。</li>
+  <li>管理员只能查看评估结果和结构化摘要，不能查看完整对话。</li>
+  <li>人才检索只基于最新有效评估结果和员工档案。</li>
+</ul>
+
+<h1>十四、开发执行顺序</h1>
+<ol>
+  <li seq="auto">补充依赖：Supabase、Vercel AI SDK、Excel 解析、密码 hash 工具。</li>
+  <li seq="auto">创建 Supabase migration。</li>
+  <li seq="auto">初始化管理员账号。</li>
+  <li seq="auto">实现登录与 session。</li>
+  <li seq="auto">实现员工档案 CRUD。</li>
+  <li seq="auto">实现 Excel 导入解析与确认导入。</li>
+  <li seq="auto">实现 AI 自评估 session 状态机。</li>
+  <li seq="auto">实现 Vercel AI SDK + DeepSeek streaming Chatbox。</li>
+  <li seq="auto">实现第 10 轮评估结果生成。</li>
+  <li seq="auto">实现 Cloudflare bge-m3 embedding。</li>
+  <li seq="auto">实现 Supabase pgvector 人才检索。</li>
+  <li seq="auto">实现管理员首页统计。</li>
+  <li seq="auto">完成本机验收。</li>
+  <li seq="auto">配置 Vercel 环境变量并部署。</li>
+</ol>
+
+<h1>十五、开发前仍需用户准备</h1>
+<table>
+  <thead>
+    <tr>
+      <th background-color="light-gray">事项</th>
+      <th background-color="light-gray">是否必须</th>
+      <th background-color="light-gray">说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Supabase 项目</td><td>是</td><td>提供 Supabase URL、Anon Key、Service Role Key、Database URL。</td></tr>
+    <tr><td>DeepSeek API Key</td><td>是</td><td>用于 deepseek-v4-flash。</td></tr>
+    <tr><td>Cloudflare Account ID</td><td>是</td><td>用于 Workers AI REST API。</td></tr>
+    <tr><td>Cloudflare API Token</td><td>是</td><td>需要有 Workers AI 调用权限。</td></tr>
+    <tr><td>GitHub 仓库</td><td>是</td><td>用于代码托管和 Vercel 自动部署。</td></tr>
+    <tr><td>Vercel 项目权限</td><td>上线前必须</td><td>用于配置环境变量和部署。</td></tr>
+  </tbody>
+</table>
+
+<h1>十六、参考资料</h1>
+<ul>
+  <li><a href="https://github.com/vercel/chatbot">vercel/chatbot</a></li>
+  <li><a href="https://ai-sdk.dev/providers/openai-compatible-providers">Vercel AI SDK OpenAI-Compatible Provider</a></li>
+  <li><a href="https://api-docs.deepseek.com/api/create-chat-completion">DeepSeek Chat Completion API</a></li>
+  <li><a href="https://developers.cloudflare.com/workers-ai/models/bge-m3/">Cloudflare Workers AI bge-m3</a></li>
+  <li><a href="https://supabase.com/docs/guides/database/extensions/pgvector">Supabase pgvector</a></li>
+  <li><a href="https://vercel.com/docs/environment-variables">Vercel Environment Variables</a></li>
+</ul>

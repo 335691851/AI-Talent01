@@ -1,0 +1,220 @@
+<title>AI Talent 产品与实施工作规划 v0.2</title>
+
+<h1>一、文档信息</h1>
+<table>
+  <tbody>
+    <tr><td>产品名称</td><td>AI Talent</td></tr>
+    <tr><td>文档版本</td><td>v0.2</td></tr>
+    <tr><td>日期</td><td>2026-07-01</td></tr>
+    <tr><td>目标读者</td><td>产品负责人、企业管理员、研发实现人员</td></tr>
+    <tr><td>当前阶段</td><td>产品定义与技术底座规划</td></tr>
+  </tbody>
+</table>
+
+<h1>二、产品目标</h1>
+<p>AI Talent 是一个企业 AI 人才评估与管理的轻量级应用，核心目标是帮助企业提升 AI 人才比重。系统通过员工 AI 自评、岗位描述、能力结果沉淀和企业级汇总分析，让企业管理员能够掌握组织 AI 能力现状，让员工能够查看个人 AI 能力水平与历史变化。</p>
+
+<h2>核心目标</h2>
+<ul>
+  <li>建立企业员工 AI 能力档案，沉淀岗位与能力数据。</li>
+  <li>让员工完成 AI 能力自评，并查看自己的历史评估结果。</li>
+  <li>让企业管理员基于员工自评结果进行 AI 人才管理和组织能力分析。</li>
+  <li>在核心页面提供 AI Chat 流式响应能力，支持基于员工档案和自评数据的查询分析。</li>
+</ul>
+
+<h1>三、用户角色与边界</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">角色</th><th background-color="light-gray">核心目标</th><th background-color="light-gray">权限边界</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>企业管理员</td><td>查看全员 AI 能力分布、部门分布、员工最新自评结果、历史趋势和高潜人才。</td><td>只能访问本企业数据，不直接对员工 AI 能力打分。</td></tr>
+    <tr><td>员工</td><td>维护个人基础档案，填写 AI 能力自评，查看自己的历史评估结果。</td><td>只能访问自己的档案、自评记录和系统生成结果。</td></tr>
+    <tr><td>系统 AI 助手</td><td>基于受控数据查询与上下文，提供查询、总结、分析和建议。</td><td>只能通过后端受控工具访问授权数据，不能自由查询数据库。</td></tr>
+  </tbody>
+</table>
+
+<h1>四、MVP 核心模块</h1>
+
+<h2>1. 企业与权限</h2>
+<ul>
+  <li>企业空间与租户隔离。</li>
+  <li>Supabase Auth 登录。</li>
+  <li>管理员与员工角色。</li>
+  <li>Postgres RLS 按企业、角色、用户归属控制访问。</li>
+</ul>
+
+<h2>2. 员工 AI 档案</h2>
+<p>员工 AI 档案聚焦“岗位信息、技能自评、评估结果”，不包含 AI 项目、学习记录、课程认证等过程型内容。</p>
+<ul>
+  <li>员工基础信息：姓名、部门、岗位、职级、汇报关系。</li>
+  <li>岗位描述信息：岗位职责、关键业务场景、核心任务、能力要求。</li>
+  <li>岗位 AI 结合机会：岗位可被 AI 提效、增强或转型的场景说明。</li>
+  <li>当前 AI 自评结果：员工最近一次 AI 能力自评结果。</li>
+  <li>历史 AI 自评记录：员工可查看历次自评结果和变化趋势。</li>
+  <li>系统生成结果：能力等级、优势能力、待提升能力、发展建议。</li>
+</ul>
+
+<h2>3. 员工 AI 能力自评</h2>
+<p>AI 能力评估仅提供员工自评能力，不做管理员评分。企业管理员可以查看自评结果和汇总分析，但不参与员工评分。</p>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">评估维度</th><th background-color="light-gray">说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>AI 基础认知</td><td>理解 AI 基本概念、能力边界和常见应用方式。</td></tr>
+    <tr><td>AI 工具使用</td><td>能够使用常见 AI 工具完成日常工作任务。</td></tr>
+    <tr><td>提示词与任务拆解</td><td>能够将业务问题拆解为适合 AI 协作的任务。</td></tr>
+    <tr><td>业务场景应用</td><td>能够结合岗位场景使用 AI 提升效率或质量。</td></tr>
+    <tr><td>数据分析能力</td><td>能够使用 AI 辅助理解、分析和表达数据。</td></tr>
+    <tr><td>自动化能力</td><td>能够使用 AI 或自动化工具优化重复性流程。</td></tr>
+    <tr><td>AI 风险与合规意识</td><td>理解数据安全、隐私、版权、幻觉和合规风险。</td></tr>
+    <tr><td>岗位 AI 结合潜力</td><td>结合岗位职责判断 AI 应用空间和成长潜力。</td></tr>
+  </tbody>
+</table>
+
+<h2>4. 管理员驾驶舱</h2>
+<ul>
+  <li>企业 AI 人才占比。</li>
+  <li>部门 AI 能力分布。</li>
+  <li>员工最新自评结果列表。</li>
+  <li>员工历史评估趋势。</li>
+  <li>高潜 AI 人才识别。</li>
+  <li>AI 能力薄弱岗位或部门识别。</li>
+</ul>
+
+<h2>5. AI Chat 流式响应 Chatbox</h2>
+<p>核心页面需要内嵌 AI Chatbox，支持流式响应。第一版以“RAG 预留、数据查询优先”的方式实现，先基于受控数据查询工具回答组织和员工能力相关问题。</p>
+<ul>
+  <li>管理员驾驶舱：查询企业 AI 人才分布、部门差异、高潜人才和能力短板。</li>
+  <li>员工详情页：总结员工岗位信息、自评结果和历史变化。</li>
+  <li>员工个人档案页：帮助员工理解自评结果和改进建议。</li>
+  <li>自评结果详情页：解释评分、能力等级、优势和待提升项。</li>
+</ul>
+
+<h1>五、技术架构</h1>
+
+<h2>基础技术栈</h2>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">层级</th><th background-color="light-gray">技术选型</th><th background-color="light-gray">说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>前端与服务端</td><td>Next.js App Router</td><td>页面、服务端渲染、Server Components、Server Actions、Route Handler。</td></tr>
+    <tr><td>数据库</td><td>Supabase Postgres</td><td>业务数据、权限模型、评估记录、Chat 会话数据。</td></tr>
+    <tr><td>认证</td><td>Supabase Auth</td><td>员工和管理员登录。</td></tr>
+    <tr><td>权限</td><td>Postgres RLS</td><td>按企业、用户、角色做数据隔离。</td></tr>
+    <tr><td>部署</td><td>GitHub + Vercel</td><td>代码托管、自动构建、线上部署。</td></tr>
+    <tr><td>AI 服务</td><td>DeepSeek</td><td>默认 LLM 使用 deepseek-v4-flash。</td></tr>
+    <tr><td>AI UI 与流式响应</td><td>Vercel AI SDK</td><td>构建 Chatbox、流式消息、工具调用。</td></tr>
+  </tbody>
+</table>
+
+<h2>数据访问策略</h2>
+<ul>
+  <li>普通业务读数据优先使用 Server Components。</li>
+  <li>普通业务写数据优先使用 Server Actions。</li>
+  <li>AI Chat 流式响应使用 Route Handler，例如 app/api/chat/route.ts。</li>
+  <li>涉及权限的数据访问必须同时经过应用层校验和数据库 RLS 约束。</li>
+</ul>
+
+<h2>AI Chat 流式服务层</h2>
+<p>AI Chat 使用独立的服务层实现，避免把模型调用、权限上下文和业务查询散落在页面组件中。</p>
+<pre lang="text" caption="AI Chat 调用链路"><code>Chatbox UI
+调用 app/api/chat/route.ts
+读取登录用户与企业权限
+构建员工档案和自评结果上下文
+调用受控数据查询工具
+调用 DeepSeek deepseek-v4-flash
+流式返回前端
+记录会话、消息、工具调用和审计日志</code></pre>
+
+<h2>DeepSeek 配置</h2>
+<pre lang="text" caption="建议环境变量"><code>DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_CHAT_MODEL=deepseek-v4-flash
+AI_PROVIDER=deepseek
+AI_CHAT_MAX_STEPS=5
+AI_CHAT_MAX_CONTEXT_CHARS=12000</code></pre>
+
+<h2>RAG 与数据查询策略</h2>
+<p>第一版优先做数据查询型助手，不开放模型自由生成 SQL。模型只能调用后端封装的受控工具，工具内部完成权限校验和查询限制。RAG 能力保留表结构与模块边界，等岗位描述、评估说明、企业能力标准等文本规模增大后，再启用向量检索。</p>
+<ul>
+  <li>第一阶段：受控数据查询工具。</li>
+  <li>第二阶段：Supabase Postgres + pgvector 做知识片段检索。</li>
+  <li>第三阶段：结合 RAG、工具调用、审计日志形成企业 AI 人才分析助手。</li>
+</ul>
+
+<h1>六、核心数据模型草案</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">表名</th><th background-color="light-gray">用途</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>organizations</td><td>企业租户信息。</td></tr>
+    <tr><td>organization_members</td><td>用户与企业、角色的关系。</td></tr>
+    <tr><td>employees</td><td>员工基础信息、岗位、部门、职级、汇报关系。</td></tr>
+    <tr><td>employee_job_profiles</td><td>岗位描述、职责、关键业务场景、岗位 AI 机会。</td></tr>
+    <tr><td>assessment_templates</td><td>AI 自评模板和评估维度配置。</td></tr>
+    <tr><td>self_assessments</td><td>员工每次提交的 AI 自评主记录。</td></tr>
+    <tr><td>self_assessment_scores</td><td>各维度分数、等级和说明。</td></tr>
+    <tr><td>self_assessment_results</td><td>系统生成的总分、能力等级、优势、短板和建议。</td></tr>
+    <tr><td>chat_sessions</td><td>AI Chat 会话。</td></tr>
+    <tr><td>chat_messages</td><td>AI Chat 消息记录。</td></tr>
+    <tr><td>ai_tool_calls</td><td>AI 调用过的受控查询工具记录。</td></tr>
+    <tr><td>ai_audit_logs</td><td>AI 查询、数据访问和模型响应审计。</td></tr>
+    <tr><td>knowledge_chunks</td><td>后续 RAG 使用的知识片段。</td></tr>
+    <tr><td>knowledge_embeddings</td><td>后续 RAG 使用的向量数据。</td></tr>
+  </tbody>
+</table>
+
+<h1>七、页面规划</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">页面</th><th background-color="light-gray">角色</th><th background-color="light-gray">核心能力</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>登录页</td><td>全部</td><td>Supabase Auth 登录。</td></tr>
+    <tr><td>管理员驾驶舱</td><td>企业管理员</td><td>AI 人才占比、部门分布、趋势、高潜识别、Chatbox。</td></tr>
+    <tr><td>员工列表</td><td>企业管理员</td><td>查看员工基础信息、岗位、自评状态和最新结果。</td></tr>
+    <tr><td>员工详情</td><td>企业管理员</td><td>查看岗位描述、自评结果、历史趋势、Chatbox。</td></tr>
+    <tr><td>我的档案</td><td>员工</td><td>查看和维护基础信息、岗位描述相关信息。</td></tr>
+    <tr><td>AI 自评</td><td>员工</td><td>填写 AI 能力自评并提交。</td></tr>
+    <tr><td>我的评估结果</td><td>员工</td><td>查看最新结果、历史结果和变化趋势，支持 Chatbox 解读。</td></tr>
+    <tr><td>系统设置</td><td>企业管理员</td><td>评估模板、维度配置、角色权限配置。</td></tr>
+  </tbody>
+</table>
+
+<h1>八、实施节奏</h1>
+<table>
+  <thead>
+    <tr><th background-color="light-gray">阶段</th><th background-color="light-gray">目标</th><th background-color="light-gray">主要产出</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>第 1 阶段：产品定义</td><td>明确 MVP 范围、角色、页面、评估逻辑。</td><td>PRD、页面清单、权限矩阵、评估维度。</td></tr>
+    <tr><td>第 2 阶段：技术底座</td><td>搭建 Next.js、Supabase、Auth、RLS、部署链路。</td><td>项目骨架、数据库 schema、登录与权限。</td></tr>
+    <tr><td>第 3 阶段：员工档案</td><td>实现员工基础信息、岗位描述、管理员查看。</td><td>员工档案页面、岗位描述表单、员工列表。</td></tr>
+    <tr><td>第 4 阶段：AI 自评</td><td>实现员工自评、结果生成、历史结果查看。</td><td>自评表单、评分结果、历史趋势。</td></tr>
+    <tr><td>第 5 阶段：管理员看板</td><td>实现企业和部门维度的 AI 能力管理。</td><td>驾驶舱、能力分布、人才列表、趋势图。</td></tr>
+    <tr><td>第 6 阶段：AI Chat</td><td>核心页面接入流式 Chatbox 和 DeepSeek。</td><td>Chat API、Chatbox、受控查询工具、审计日志。</td></tr>
+  </tbody>
+</table>
+
+<h1>九、近期待确认事项</h1>
+<checkbox done="false">确认 AI 自评维度和每个维度的评分等级。</checkbox>
+<checkbox done="false">确认管理员是否需要部门负责人角色。</checkbox>
+<checkbox done="false">确认员工岗位描述由员工填写、管理员导入，还是二者都支持。</checkbox>
+<checkbox done="false">确认 DeepSeek Key 的本地与 Vercel 环境变量配置方式。</checkbox>
+<checkbox done="false">确认第一版是否需要上传员工数据，或先用手工录入。</checkbox>
+
+<h1>十、v0.2 变更摘要</h1>
+<ul>
+  <li>员工 AI 档案删除 AI 项目、学习记录、课程认证等过程型内容。</li>
+  <li>员工 AI 档案增加岗位描述信息，包括岗位职责、关键业务场景、核心任务和岗位 AI 机会。</li>
+  <li>AI 能力评估限定为员工自评，管理员不参与评分。</li>
+  <li>员工可查看自己的历史自评结果和趋势。</li>
+  <li>管理员侧聚焦自评结果汇总、员工结果查看、部门分布和高潜识别。</li>
+  <li>核心页面增加 AI Chat 流式响应 Chatbox 能力。</li>
+  <li>AI 服务默认使用 DeepSeek deepseek-v4-flash。</li>
+  <li>架构补充 Chat API Route、DeepSeek Provider、权限上下文构建器、受控数据查询工具、Chat 持久化和审计日志。</li>
+</ul>

@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Talent 原型设计稿 v0.1</title>
+    <style>
+      :root {
+        --bg: #f7f9fc;
+        --text: #111827;
+        --muted: #667085;
+        --line: #d8dee9;
+        --blue: #2563eb;
+        --blue-dark: #174ea6;
+        --blue-ink: #0b2254;
+        --blue-soft: #eef4ff;
+        --green: #16a34a;
+        --orange: #ea580c;
+        --cyan: #0891b2;
+        --white: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        background: linear-gradient(180deg, #f2f7ff 0, rgba(242, 247, 255, 0) 280px), var(--bg);
+        font-family:
+          Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 1px solid #d5dce8;
+        background: rgba(255, 255, 255, 0.96);
+      }
+
+      .brand-band {
+        background: linear-gradient(105deg, var(--blue-ink) 0%, var(--blue-dark) 58%, #2b6fe8 100%);
+        color: white;
+      }
+
+      .brand-inner {
+        display: flex;
+        min-height: 76px;
+        max-width: 1280px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        margin: 0 auto;
+        padding: 16px 24px;
+      }
+
+      .brand-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.14);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+        font-weight: 700;
+      }
+
+      .brand-title {
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 24px;
+      }
+
+      .brand-subtitle {
+        margin-top: 4px;
+        color: rgba(239, 246, 255, 0.92);
+        font-size: 12px;
+      }
+
+      .brand-meta {
+        display: flex;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .brand-meta span {
+        border-radius: 6px;
+        padding: 6px 10px;
+        background: rgba(255, 255, 255, 0.12);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+      }
+
+      .nav {
+        display: flex;
+        max-width: 1280px;
+        gap: 6px;
+        margin: 0 auto;
+        overflow-x: auto;
+        padding: 14px 24px;
+      }
+
+      .nav button {
+        display: inline-flex;
+        height: 40px;
+        shrink: 0;
+        cursor: pointer;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: transparent;
+        padding: 0 14px;
+        color: #475467;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .nav button.active {
+        border-color: #bfdbfe;
+        background: var(--blue-soft);
+        color: var(--blue-dark);
+      }
+
+      .nav button:hover {
+        border-color: #e2e8f0;
+        background: #f8fafc;
+      }
+
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .page {
+        display: none;
+      }
+
+      .page.active {
+        display: block;
+      }
+
+      .page-head {
+        display: flex;
+        min-height: 120px;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 20px;
+        border: 1px solid #dbe3ef;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #ffffff 0%, #f7f9fe 52%, #eef4ff 100%);
+        padding: 22px 24px;
+      }
+
+      .eyebrow {
+        margin-bottom: 8px;
+        color: var(--blue-dark);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 26px;
+        line-height: 34px;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+
+      p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 24px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .btn {
+        display: inline-flex;
+        min-height: 38px;
+        cursor: pointer;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: white;
+        padding: 8px 12px;
+        color: #334155;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .btn.primary {
+        border-color: var(--blue);
+        background: var(--blue);
+        color: white;
+      }
+
+      .btn.soft {
+        border-color: #bfdbfe;
+        background: #eff6ff;
+        color: var(--blue-dark);
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .two {
+        grid-template-columns: 1.1fr 0.9fr;
+      }
+
+      .three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.94);
+        padding: 16px;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .metric {
+        min-height: 126px;
+      }
+
+      .metric-label {
+        color: #667085;
+        font-size: 14px;
+      }
+
+      .metric-value {
+        margin-top: 14px;
+        color: #0f172a;
+        font-size: 30px;
+        font-weight: 750;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .metric-note {
+        margin-top: 6px;
+        color: #667085;
+        font-size: 12px;
+      }
+
+      .bar-row {
+        display: grid;
+        grid-template-columns: 132px 1fr 44px;
+        align-items: center;
+        gap: 12px;
+        margin: 14px 0;
+        color: #475467;
+        font-size: 13px;
+      }
+
+      .bar {
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #edf2f7;
+      }
+
+      .fill {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--blue);
+      }
+
+      .fill.green {
+        background: var(--green);
+      }
+
+      .fill.orange {
+        background: var(--orange);
+      }
+
+      .fill.cyan {
+        background: var(--cyan);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid #bfdbfe;
+        border-radius: 4px;
+        background: #eff6ff;
+        padding: 3px 8px;
+        color: var(--blue-dark);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .badge.green {
+        border-color: #bbf7d0;
+        background: #f0fdf4;
+        color: #15803d;
+      }
+
+      .badge.orange {
+        border-color: #fed7aa;
+        background: #fff7ed;
+        color: #c2410c;
+      }
+
+      .badge.gray {
+        border-color: #e2e8f0;
+        background: #f8fafc;
+        color: #475569;
+      }
+
+      .list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .list-item {
+        border-bottom: 1px solid #edf2f7;
+        padding-bottom: 12px;
+      }
+
+      .list-item:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .item-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .item-title {
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .item-sub {
+        margin-top: 4px;
+        color: #667085;
+        font-size: 13px;
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: 1fr 160px 160px 110px;
+        gap: 12px;
+        margin-bottom: 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        padding: 12px;
+      }
+
+      .input-like,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: white;
+        padding: 10px 12px;
+        color: #667085;
+        font-size: 14px;
+      }
+
+      table {
+        width: 100%;
+        min-width: 720px;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 14px;
+      }
+
+      th {
+        border-bottom: 1px solid #dbe3ef;
+        padding: 12px 8px;
+        color: #667085;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      td {
+        border-bottom: 1px solid #eef2f7;
+        padding: 12px 8px;
+        color: #344054;
+        vertical-align: top;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      .field {
+        margin-bottom: 14px;
+      }
+
+      .field-label {
+        margin-bottom: 4px;
+        color: #667085;
+        font-size: 12px;
+      }
+
+      .field-value {
+        color: #344054;
+        font-size: 14px;
+        line-height: 24px;
+      }
+
+      .chat-layout {
+        grid-template-columns: 0.75fr 1.25fr;
+      }
+
+      .chatbox {
+        display: flex;
+        min-height: 560px;
+        flex-direction: column;
+      }
+
+      .chat-status {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        background: #eff6ff;
+        padding: 10px 12px;
+        color: var(--blue-dark);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .messages {
+        flex: 1;
+        display: grid;
+        align-content: start;
+        gap: 14px;
+      }
+
+      .msg {
+        max-width: 82%;
+        border: 1px solid #dbe3ef;
+        border-radius: 8px;
+        background: white;
+        padding: 12px 14px;
+        color: #344054;
+        font-size: 14px;
+        line-height: 24px;
+      }
+
+      .msg.user {
+        justify-self: end;
+        border-color: var(--blue);
+        background: var(--blue);
+        color: white;
+      }
+
+      .chat-input {
+        display: grid;
+        grid-template-columns: 1fr 80px;
+        gap: 8px;
+        margin-top: 16px;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 16px;
+      }
+
+      .upload {
+        display: grid;
+        min-height: 260px;
+        place-items: center;
+        border: 1px dashed #93c5fd;
+        border-radius: 8px;
+        background: #eff6ff;
+        padding: 32px;
+        text-align: center;
+      }
+
+      .rules {
+        display: grid;
+        gap: 10px;
+      }
+
+      .rule {
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: white;
+        padding: 12px;
+        color: #475467;
+        font-size: 14px;
+        line-height: 22px;
+      }
+
+      .design-spec {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .swatch {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        padding: 12px;
+      }
+
+      .swatch-color {
+        height: 34px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+      }
+
+      @media (max-width: 960px) {
+        .metrics,
+        .two,
+        .three,
+        .chat-layout,
+        .design-spec {
+          grid-template-columns: 1fr;
+        }
+
+        .page-head,
+        .brand-inner {
+          align-items: start;
+          flex-direction: column;
+        }
+
+        .toolbar {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-band">
+        <div class="brand-inner">
+          <div class="brand-left">
+            <div class="brand-mark">AI</div>
+            <div>
+              <div class="brand-title">AI Talent</div>
+              <div class="brand-subtitle">企业 AI 人才评估管理系统 · 原型设计稿 v0.1</div>
+            </div>
+          </div>
+          <div class="brand-meta">
+            <span>管理员</span>
+            <span>admin</span>
+          </div>
+        </div>
+      </div>
+      <nav class="nav" aria-label="页面导航">
+        <button class="active" data-page="dashboard">首页</button>
+        <button data-page="employees">员工档案</button>
+        <button data-page="assessment">AI 自评估</button>
+        <button data-page="search">人才检索</button>
+        <button data-page="imports">Excel 导入</button>
+        <button data-page="settings">系统设置</button>
+        <button data-page="spec">样式规范</button>
+      </nav>
+    </header>
+
+    <main class="container">
+      <section id="dashboard" class="page active">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">管理员首页</div>
+            <h1>企业 AI 人才概览</h1>
+            <p>集中查看员工 AI 档案完善度、AI 自评估结果和企业内部 AI 能力分布，为人才盘点和项目组建提供依据。</p>
+          </div>
+          <div class="actions">
+            <button class="btn">导入员工</button>
+            <button class="btn primary">发起检索</button>
+          </div>
+        </div>
+
+        <div class="grid metrics">
+          <div class="panel metric"><div class="metric-label">员工总数</div><div class="metric-value">128</div><div class="metric-note">覆盖一个企业主体</div></div>
+          <div class="panel metric"><div class="metric-label">已完善 AI 档案</div><div class="metric-value">92</div><div class="metric-note">档案完整率 71.8%</div></div>
+          <div class="panel metric"><div class="metric-label">平均 AI 分数</div><div class="metric-value">88</div><div class="metric-note">基于最新有效评估</div></div>
+          <div class="panel metric"><div class="metric-label">高潜 AI 人才</div><div class="metric-value">18</div><div class="metric-note">85 分及以上员工</div></div>
+        </div>
+
+        <div class="grid two" style="margin-top: 16px">
+          <div class="panel">
+            <div class="panel-head"><h2>AI 分数分布</h2></div>
+            <div class="bar-row"><span>0-59 基础薄弱</span><div class="bar"><div class="fill orange" style="width: 16%"></div></div><strong>4</strong></div>
+            <div class="bar-row"><span>60-74 入门应用</span><div class="bar"><div class="fill cyan" style="width: 24%"></div></div><strong>6</strong></div>
+            <div class="bar-row"><span>75-84 熟练应用</span><div class="bar"><div class="fill" style="width: 36%"></div></div><strong>9</strong></div>
+            <div class="bar-row"><span>85-94 复合能力</span><div class="bar"><div class="fill green" style="width: 20%"></div></div><strong>5</strong></div>
+            <div class="bar-row"><span>95-100 高潜专家</span><div class="bar"><div class="fill green" style="width: 4%"></div></div><strong>1</strong></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>能力关键词 Top 5</h2></div>
+            <div class="bar-row"><span>Python</span><div class="bar"><div class="fill" style="width: 68%"></div></div><strong>68</strong></div>
+            <div class="bar-row"><span>Codex</span><div class="bar"><div class="fill" style="width: 62%"></div></div><strong>62</strong></div>
+            <div class="bar-row"><span>RAG</span><div class="bar"><div class="fill" style="width: 54%"></div></div><strong>54</strong></div>
+            <div class="bar-row"><span>数据处理</span><div class="bar"><div class="fill cyan" style="width: 49%"></div></div><strong>49</strong></div>
+            <div class="bar-row"><span>视觉检测</span><div class="bar"><div class="fill cyan" style="width: 31%"></div></div><strong>31</strong></div>
+          </div>
+        </div>
+
+        <div class="grid three" style="margin-top: 16px">
+          <div class="panel">
+            <div class="panel-head"><h2>高分人才</h2></div>
+            <div class="list">
+              <div class="list-item"><div class="item-top"><span class="item-title">周启</span><span class="badge green">96 分</span></div><div class="item-sub">算法工程师 · P8</div></div>
+              <div class="list-item"><div class="item-top"><span class="item-title">陈旭</span><span class="badge">91 分</span></div><div class="item-sub">数据工程师 · P6</div></div>
+              <div class="list-item"><div class="item-top"><span class="item-title">张岚</span><span class="badge">88 分</span></div><div class="item-sub">产品经理 · P7</div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>待完善档案</h2></div>
+            <div class="list">
+              <div class="list-item"><div class="item-top"><span class="item-title">王越</span><span class="badge orange">58%</span></div><div class="item-sub">销售经理 · 缺少评估结果</div></div>
+              <div class="list-item"><div class="item-top"><span class="item-title">李曼</span><span class="badge orange">84%</span></div><div class="item-sub">运营专员 · 项目经验待补充</div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>最近评估</h2></div>
+            <div class="list">
+              <div class="list-item"><div class="item-title">周启完成 AI 自评</div><div class="item-sub">2026-06-30 · 96 分</div></div>
+              <div class="list-item"><div class="item-title">陈旭完成 AI 自评</div><div class="item-sub">2026-06-29 · 91 分</div></div>
+              <div class="list-item"><div class="item-title">张岚完成 AI 自评</div><div class="item-sub">2026-06-28 · 88 分</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="employees" class="page">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">员工档案</div>
+            <h1>员工 AI 档案管理</h1>
+            <p>管理员可导入、查询和编辑员工档案；员工登录后维护自己的岗位信息、AI 产品能力、技术栈能力和项目经验。</p>
+          </div>
+          <div class="actions"><button class="btn">高级筛选</button><button class="btn primary">编辑档案</button></div>
+        </div>
+        <div class="toolbar">
+          <div class="input-like">搜索姓名 / 工号 / 手机号</div>
+          <select><option>全部岗位</option></select>
+          <select><option>全部级别</option></select>
+          <button class="btn soft">查询</button>
+        </div>
+        <div class="grid two">
+          <div class="panel">
+            <div class="panel-head"><h2>员工列表</h2></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>工号</th><th>姓名</th><th>岗位</th><th>级别</th><th>AI 分数</th><th>状态</th></tr></thead>
+                <tbody>
+                  <tr><td>E-1001</td><td>张岚</td><td>产品经理</td><td>P7</td><td><span class="badge">88</span></td><td><span class="badge green">已完成</span></td></tr>
+                  <tr><td>E-1002</td><td>陈旭</td><td>数据工程师</td><td>P6</td><td><span class="badge">91</span></td><td><span class="badge green">已完成</span></td></tr>
+                  <tr><td>E-1003</td><td>李曼</td><td>运营专员</td><td>P5</td><td><span class="badge">78</span></td><td><span class="badge green">已完成</span></td></tr>
+                  <tr><td>E-1005</td><td>王越</td><td>销售经理</td><td>P6</td><td><span class="badge gray">暂无</span></td><td><span class="badge orange">未评估</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>档案详情</h2><span class="badge">E-1001</span></div>
+            <div class="field"><div class="field-label">姓名</div><div class="field-value">张岚 · 13800001001</div></div>
+            <div class="field"><div class="field-label">岗位与级别</div><div class="field-value">产品经理 · P7</div></div>
+            <div class="field"><div class="field-label">岗位描述</div><div class="field-value">负责企业效率工具和 AI 办公场景规划，推进跨部门需求梳理与落地验收。</div></div>
+            <div class="field"><div class="field-label">产品能力</div><div class="field-value">熟练使用 Codex、DeepSeek、飞书智能伙伴进行文档生成、数据整理、流程梳理和原型评审。</div></div>
+            <div class="field"><div class="field-label">技术栈能力</div><div class="field-value">了解 RAG、Prompt Engineering、Agent 工作流，能与研发共同拆解数据查询型助手方案。</div></div>
+            <div class="field"><div class="field-label">项目经验</div><div class="field-value">主导销售知识库问答助手，覆盖售前资料查询与方案初稿生成。</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="assessment" class="page">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">员工端</div>
+            <h1>AI 自评估 Chatbox</h1>
+            <p>员工主动发起 AI 能力测评任务，AI 通过 10 轮多轮对话完成引导和评估；10 轮前退出则本次任务作废。</p>
+          </div>
+          <button class="btn primary">开始新评估</button>
+        </div>
+        <div class="grid chat-layout">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head"><h2>当前员工</h2></div>
+              <div class="field"><div class="field-label">姓名</div><div class="field-value">张岚 · E-1001</div></div>
+              <div class="field"><div class="field-label">岗位</div><div class="field-value">产品经理 · P7</div></div>
+              <div class="bar-row" style="grid-template-columns: 80px 1fr 46px"><span>进度</span><div class="bar"><div class="fill" style="width: 20%"></div></div><strong>2/10</strong></div>
+              <div class="rule" style="border-color: #fed7aa; background: #fff7ed; color: #9a3412">完成 10 轮后才生成分数和评估说明，中途退出不保存过程和结果。</div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h2>历史评估记录</h2></div>
+              <div class="list">
+                <div class="list-item"><div class="item-top"><span class="item-title">2026-06-28</span><span class="badge green">88 分</span></div><div class="item-sub">已完成</div></div>
+                <div class="list-item"><div class="item-top"><span class="item-title">2026-05-18</span><span class="badge green">82 分</span></div><div class="item-sub">已完成</div></div>
+                <div class="list-item"><div class="item-top"><span class="item-title">2026-04-03</span><span class="badge gray">已作废</span></div><div class="item-sub">中途退出</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel chatbox">
+            <div class="panel-head"><h2>10 轮 AI 能力测评</h2><span class="badge">流式响应原型</span></div>
+            <div class="chat-status"><span>第 2 轮进行中</span><span>剩余 8 轮</span></div>
+            <div class="messages">
+              <div class="msg">第 1 轮：请描述你最近一次使用 AI 工具完成工作的场景，包括目标、工具和结果。</div>
+              <div class="msg user">我使用 Codex 辅助整理需求说明，将会议纪要拆成页面清单和验收标准。</div>
+              <div class="msg">第 2 轮：如果让你为一个业务流程设计 AI 助手，你会如何拆解数据、权限和评估指标？</div>
+              <div class="msg user">我会先梳理数据源和用户角色，再定义可回答问题边界，最后用命中率和人工复核通过率评估。</div>
+              <div class="msg">AI 正在生成第 3 轮问题...</div>
+            </div>
+            <div class="chat-input"><textarea placeholder="输入本轮回答..."></textarea><button class="btn primary">发送</button></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="search" class="page">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">管理员能力</div>
+            <h1>AI 人才检索</h1>
+            <p>管理员可通过自然语言和结构化条件检索人才，系统融合档案字段、最新评估结果和 embedding 语义相似度进行排序。</p>
+          </div>
+          <button class="btn">检索配置</button>
+        </div>
+        <div class="panel" style="margin-bottom: 16px">
+          <div class="toolbar" style="margin: 0; grid-template-columns: 1fr 110px; border: 0; padding: 0">
+            <div class="input-like">列出熟悉 LangChain、Python 数据处理，并有视觉识别项目经验的员工</div>
+            <button class="btn primary">检索</button>
+          </div>
+          <div class="actions" style="margin-top: 12px"><span class="badge gray">岗位：全部</span><span class="badge gray">级别：P6+</span><span class="badge gray">AI 分数：85+</span><span class="badge gray">结构化 + 语义检索</span></div>
+        </div>
+        <div class="grid">
+          <div class="panel">
+            <div class="panel-head"><h2>1. 周启 · 算法工程师</h2><span class="badge green">96 分</span></div>
+            <div class="grid two">
+              <div>
+                <div class="field"><div class="field-label">基础信息</div><div class="field-value">E-1004 · 13800001004 · P8</div></div>
+                <div class="field"><div class="field-label">岗位描述</div><div class="field-value">负责视觉检测、模型训练和边缘端推理优化，支持制造质量场景智能化升级。</div></div>
+                <div class="field"><div class="field-label">匹配原因</div><div class="field-value">命中 PyTorch、强化学习、视觉检测、边缘推理，最新评估说明显示其具备项目落地能力。</div></div>
+              </div>
+              <div>
+                <div class="field"><div class="field-label">技术栈能力</div><div class="field-value">熟悉 Python、PyTorch、强化学习、视觉模型、边缘推理、LangChain 和模型服务化部署。</div></div>
+                <div class="field"><div class="field-label">项目经验</div><div class="field-value">采用 IoT 技术和强化学习搭建质量视觉分析助手，在端侧完成瑕疵识别和工艺参数优化建议输出。</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>2. 陈旭 · 数据工程师</h2><span class="badge">91 分</span></div>
+            <div class="grid two">
+              <div class="field"><div class="field-label">匹配原因</div><div class="field-value">命中 Python、Postgres、LangChain、数据查询，适合指标问答和 RAG 后端实现。</div></div>
+              <div class="field"><div class="field-label">评估摘要</div><div class="field-value">技术实现能力和数据场景理解较强，适合承担数据查询助手、指标问答和 RAG 后端实现。</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="imports" class="page">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">管理员能力</div>
+            <h1>Excel 员工导入</h1>
+            <p>管理员统一导入员工基础信息和 AI 档案初始内容；工号作为主 ID，重复工号覆盖更新，手机号为必填字段。</p>
+          </div>
+          <div class="actions"><button class="btn">下载模板</button><button class="btn primary">确认导入</button></div>
+        </div>
+        <div class="grid two">
+          <div class="panel"><div class="panel-head"><h2>上传文件</h2></div><div class="upload"><div><div style="font-size: 42px">XLS</div><h2 style="margin-top: 12px">拖拽 Excel 文件到此处</h2><p>导入后员工可使用手机号和初始密码 88888888 登录并编辑自己的档案。</p><button class="btn primary" style="margin-top: 16px">选择文件</button></div></div></div>
+          <div class="panel"><div class="panel-head"><h2>导入规则</h2></div><div class="rules"><div class="rule">工号为最终唯一标识，导入时作为主 ID。</div><div class="rule">手机号必须填写，缺失手机号的行拒绝导入。</div><div class="rule">重复工号执行覆盖更新，不创建重复员工。</div><div class="rule">管理员支持编辑员工档案，但禁止删除员工。</div></div></div>
+        </div>
+        <div class="panel" style="margin-top: 16px">
+          <div class="panel-head"><h2>导入预览</h2></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>行号</th><th>工号</th><th>姓名</th><th>手机号</th><th>岗位</th><th>处理方式</th><th>校验结果</th></tr></thead>
+              <tbody>
+                <tr><td>2</td><td>E-1001</td><td>张岚</td><td>13800001001</td><td>产品经理</td><td><span class="badge green">覆盖更新</span></td><td><span class="badge green">通过</span></td></tr>
+                <tr><td>3</td><td>E-1028</td><td>赵宁</td><td>13800001028</td><td>研发工程师</td><td><span class="badge green">新增</span></td><td><span class="badge green">通过</span></td></tr>
+                <tr><td>4</td><td>E-1030</td><td>孙澈</td><td>-</td><td>销售经理</td><td><span class="badge orange">拒绝导入</span></td><td><span class="badge orange">手机号缺失</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="settings" class="page">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">系统配置</div>
+            <h1>实施配置总览</h1>
+            <p>原型阶段仅展示关键技术配置和权限边界，后续开发时再接入真实环境变量、数据库状态和服务健康检查。</p>
+          </div>
+        </div>
+        <div class="grid two">
+          <div class="panel"><div class="panel-head"><h2>账号与权限</h2></div><div class="field"><div class="field-label">角色模型</div><div class="field-value">仅管理员和员工两种角色；不提供租户、部门级权限和员工删除能力。</div></div><div class="field"><div class="field-label">初始账号</div><div class="field-value">主管理员 admin / admin；员工手机号登录，初始密码 88888888。</div></div></div>
+          <div class="panel"><div class="panel-head"><h2>AI 服务</h2></div><div class="field"><div class="field-label">LLM</div><div class="field-value">DeepSeek deepseek-v4-flash，用于 AI 自评估 10 轮对话和最终评估说明生成。</div></div><div class="field"><div class="field-label">Embedding</div><div class="field-value">Cloudflare Workers AI @cf/baai/bge-m3，向量写入 Supabase Postgres pgvector。</div></div></div>
+          <div class="panel"><div class="panel-head"><h2>数据访问策略</h2></div><div class="rule">Server Components 优先负责读取页面数据，Server Actions 负责档案更新、导入确认等服务端变更。</div><div class="rule" style="margin-top: 10px">Chatbox 流式响应用 Route Handler 承接，避免把 DeepSeek Key 暴露到浏览器。</div></div>
+          <div class="panel"><div class="panel-head"><h2>数据可见性</h2></div><div class="actions"><span class="badge green">员工可看自己的完整对话</span><span class="badge">管理员只看结果和摘要</span><span class="badge orange">检索只用最新有效评估</span></div></div>
+        </div>
+      </section>
+
+      <section id="spec" class="page">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">设计规范</div>
+            <h1>AI Talent 原型样式规范</h1>
+            <p>该设计稿采用轻量企业信息系统风格，顶部菜单、扁平化界面、商务蓝主题，重点服务档案管理、评估任务和人才检索。</p>
+          </div>
+        </div>
+        <div class="grid design-spec">
+          <div class="swatch"><div class="swatch-color" style="background:#0b2254"></div><strong>深海军蓝</strong><p>顶部主视觉起始色</p></div>
+          <div class="swatch"><div class="swatch-color" style="background:#174ea6"></div><strong>企业蓝</strong><p>顶部渐变主体色</p></div>
+          <div class="swatch"><div class="swatch-color" style="background:#2563eb"></div><strong>标准蓝</strong><p>主按钮和高亮状态</p></div>
+          <div class="swatch"><div class="swatch-color" style="background:#eef4ff"></div><strong>淡蓝灰</strong><p>页面头和浅色背景</p></div>
+        </div>
+        <div class="grid two" style="margin-top: 16px">
+          <div class="panel"><div class="panel-head"><h2>布局规则</h2></div><div class="rules"><div class="rule">顶部导航固定在页面顶部，品牌区高度 76px，二级菜单高度 40px。</div><div class="rule">页面头使用 120px 最小高度的信息带，不做营销式大 Hero。</div><div class="rule">管理页优先使用表格、筛选、详情面板和数据分布模块。</div><div class="rule">卡片圆角控制在 8px 内，边框为主，弱阴影或无阴影。</div></div></div>
+          <div class="panel"><div class="panel-head"><h2>确认范围</h2></div><div class="rules"><div class="rule">覆盖管理员首页、员工档案、AI 自评估、人才检索、Excel 导入、系统设置。</div><div class="rule">AI 自评估按 10 轮对话呈现，10 轮前退出作废。</div><div class="rule">人才检索结果全面展示员工档案、最新评估说明和匹配原因。</div><div class="rule">该文件为静态设计留底，开发实现以 Next.js 原型为准。</div></div></div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const buttons = document.querySelectorAll(".nav button");
+      const pages = document.querySelectorAll(".page");
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+          buttons.forEach((item) => item.classList.remove("active"));
+          pages.forEach((page) => page.classList.remove("active"));
+          button.classList.add("active");
+          document.getElementById(button.dataset.page).classList.add("active");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      });
+    </script>
+  </body>
+</html>
