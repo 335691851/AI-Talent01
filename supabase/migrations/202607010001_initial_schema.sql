@@ -157,6 +157,7 @@ returns table (
 )
 language sql
 stable
+set search_path = public
 as $$
   with ranked_chunks as (
     select
