@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
@@ -27,6 +28,7 @@ export default function RootLayout({
     <html lang="zh-CN" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <AppShell>{children}</AppShell>
+        <SpeedInsights />
       </body>
     </html>
   );
