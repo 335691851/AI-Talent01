@@ -35,6 +35,13 @@ export type FeishuUserInfo = {
   tenant_key?: string;
 };
 
+export function isFeishuUserAgent(userAgent?: string | null) {
+  if (!userAgent) return false;
+
+  const normalized = userAgent.toLowerCase();
+  return normalized.includes("feishu") || normalized.includes("lark");
+}
+
 type UserInfoResponse = FeishuBaseResponse & {
   data?: FeishuUserInfo;
 };

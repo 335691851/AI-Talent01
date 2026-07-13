@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { isFeishuUserAgent } from "@/lib/auth/feishu";
 
 export function FeishuAutoLogin({ enabled }: { enabled: boolean }) {
   const started = useRef(false);
@@ -8,13 +9,7 @@ export function FeishuAutoLogin({ enabled }: { enabled: boolean }) {
   useEffect(() => {
     if (!enabled || started.current) return;
 
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isFeishuClient =
-      userAgent.includes("feishu") ||
-      userAgent.includes("lark") ||
-      userAgent.includes("larkclient");
-
-    if (!isFeishuClient) return;
+    if (!isFeishuUserAgent(window.navigator.userAgent)) return;
 
     started.current = true;
     window.location.assign("/api/auth/feishu/start?next=/");
