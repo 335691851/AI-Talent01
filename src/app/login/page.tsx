@@ -1,9 +1,20 @@
 import { ShieldCheck } from "lucide-react";
+import { FeishuAutoLogin } from "@/components/feishu-auto-login";
 import { LoginForm } from "@/components/login-form";
+import { hasFeishuEnv } from "@/lib/config";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ feishu_error?: string }>;
+}) {
+  const params = await searchParams;
+  const hasFeishuLogin = hasFeishuEnv();
+
   return (
-    <div className="mx-auto grid min-h-[calc(100vh-150px)] max-w-5xl items-center gap-8 md:grid-cols-[1fr_380px]">
+    <div className="mx-auto grid min-h-[calc(100vh-150px)] max-w-5xl items-center gap-8 md:grid-cols-[1fr_390px]">
+      <FeishuAutoLogin enabled={hasFeishuLogin && !params.feishu_error} />
+
       <section>
         <div className="mb-4 inline-flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
           <ShieldCheck className="h-4 w-4" />
@@ -17,9 +28,9 @@ export default function LoginPage() {
 
       <section className="surface rounded-lg p-5">
         <h2 className="text-lg font-semibold text-slate-950">登录</h2>
-        <LoginForm />
+        <LoginForm hasFeishuLogin={hasFeishuLogin} feishuError={params.feishu_error} />
         <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-          管理员：admin / admin；员工使用手机号和初始密码 88888888。
+          飞书工作台内会自动尝试免登；管理员仍可使用账号密码登录。
         </div>
       </section>
     </div>

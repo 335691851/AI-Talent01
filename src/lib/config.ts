@@ -25,6 +25,17 @@ export const env = {
   ragTopK: Number(process.env.RAG_TOP_K ?? 8),
   ragMinScore: Number(process.env.RAG_MIN_SCORE ?? 0.35),
   forceDemoAiResponses: process.env.AI_FORCE_DEMO_RESPONSES === "true",
+  feishuAppId: process.env.FEISHU_APP_ID,
+  feishuAppSecret: process.env.FEISHU_APP_SECRET,
+  feishuAppHomeUrl:
+    process.env.FEISHU_APP_HOME_URL ?? "https://www.daidai634.com",
+  feishuApiBaseUrl:
+    process.env.FEISHU_API_BASE_URL ?? "https://open.feishu.cn",
+  feishuAuthorizeUrl:
+    process.env.FEISHU_AUTHORIZE_URL ??
+    "https://open.feishu.cn/open-apis/authen/v1/index",
+  feishuRedirectPath:
+    process.env.FEISHU_REDIRECT_PATH ?? "/api/auth/feishu/callback",
 };
 
 export function hasSupabaseEnv() {
@@ -41,4 +52,8 @@ export function hasDeepSeekEnv() {
 
 export function hasCloudflareEnv() {
   return Boolean(env.cloudflareAccountId && env.cloudflareApiToken);
+}
+
+export function hasFeishuEnv() {
+  return Boolean(env.feishuAppId && env.feishuAppSecret);
 }
