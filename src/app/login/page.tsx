@@ -1,6 +1,9 @@
 import { ShieldCheck } from "lucide-react";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { FeishuAutoLogin } from "@/components/feishu-auto-login";
 import { LoginForm } from "@/components/login-form";
+import { isFeishuUserAgent } from "@/lib/auth/feishu";
 import { hasFeishuEnv } from "@/lib/config";
 
 export default async function LoginPage({
@@ -10,6 +13,11 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const hasFeishuLogin = hasFeishuEnv();
+  const userAgent = (await headers()).get("user-agent");
+
+  if (hasFeishuLogin && !params.feishu_error && isFeishuUserAgent(userAgent)) {
+    redirect("/api/auth/feishu/start?next=/");
+  }
 
   return (
     <div className="mx-auto grid min-h-[calc(100vh-150px)] max-w-5xl items-center gap-8 md:grid-cols-[1fr_390px]">
@@ -28,10 +36,7 @@ export default async function LoginPage({
 
       <section className="surface rounded-lg p-5">
         <h2 className="text-lg font-semibold text-slate-950">登录</h2>
-        <LoginForm hasFeishuLogin={hasFeishuLogin} feishuError={params.feishu_error} />
-        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-          飞书工作台内会自动尝试免登；管理员仍可使用账号密码登录。
-        </div>
+        <LoginForm feishuError={params.feishu_error} />
       </section>
     </div>
   );

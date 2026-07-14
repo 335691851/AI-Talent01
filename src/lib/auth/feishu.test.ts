@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { buildFeishuAuthorizeUrl, normalizePhone } from "@/lib/auth/feishu";
+import {
+  buildFeishuAuthorizeUrl,
+  isFeishuUserAgent,
+  normalizePhone,
+} from "@/lib/auth/feishu";
+
+describe("isFeishuUserAgent", () => {
+  it("detects Feishu and Lark embedded browsers", () => {
+    expect(isFeishuUserAgent("Mozilla/5.0 Feishu/7.20.0")).toBe(true);
+    expect(isFeishuUserAgent("Mozilla/5.0 Lark/7.20.0")).toBe(true);
+    expect(isFeishuUserAgent("Mozilla/5.0 LarkClient/7.20.0")).toBe(true);
+  });
+
+  it("rejects ordinary and empty user agents", () => {
+    expect(isFeishuUserAgent("Mozilla/5.0 Chrome/126.0")).toBe(false);
+    expect(isFeishuUserAgent(null)).toBe(false);
+  });
+});
 
 describe("buildFeishuAuthorizeUrl", () => {
   it("requests permission to read the signed-in user's phone number", () => {
