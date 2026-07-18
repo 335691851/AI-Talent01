@@ -1,27 +1,22 @@
 import { ShieldCheck } from "lucide-react";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { FeishuAutoLogin } from "@/components/feishu-auto-login";
 import { LoginForm } from "@/components/login-form";
-import { isFeishuUserAgent } from "@/lib/auth/feishu";
-import { hasFeishuEnv } from "@/lib/config";
+import { env, hasFeishuEnv } from "@/lib/config";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ feishu_error?: string }>;
+  searchParams: Promise<{ feishu_error?: string; feishu_request_id?: string }>;
 }) {
   const params = await searchParams;
   const hasFeishuLogin = hasFeishuEnv();
-  const userAgent = (await headers()).get("user-agent");
-
-  if (hasFeishuLogin && !params.feishu_error && isFeishuUserAgent(userAgent)) {
-    redirect("/api/auth/feishu/start?next=/");
-  }
 
   return (
     <div className="mx-auto grid min-h-[calc(100vh-150px)] max-w-5xl items-center gap-8 md:grid-cols-[1fr_390px]">
-      <FeishuAutoLogin enabled={hasFeishuLogin && !params.feishu_error} />
+      <FeishuAutoLogin
+        appId={env.feishuAppId ?? ""}
+        enabled={hasFeishuLogin && !params.feishu_error}
+      />
 
       <section>
         <div className="mb-4 inline-flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
@@ -36,7 +31,10 @@ export default async function LoginPage({
 
       <section className="surface rounded-lg p-5">
         <h2 className="text-lg font-semibold text-slate-950">登录</h2>
-        <LoginForm feishuError={params.feishu_error} />
+        <LoginForm
+          feishuError={params.feishu_error}
+          feishuRequestId={params.feishu_request_id}
+        />
       </section>
     </div>
   );

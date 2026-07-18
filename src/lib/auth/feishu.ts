@@ -46,6 +46,16 @@ type UserInfoResponse = FeishuBaseResponse & {
   data?: FeishuUserInfo;
 };
 
+type AppAccessTokenResponse = FeishuBaseResponse & {
+  app_access_token?: string;
+};
+
+type ClientUserAccessTokenResponse = FeishuBaseResponse & {
+  data?: {
+    access_token?: string;
+  };
+};
+
 export function normalizePhone(phone?: string | null) {
   if (!phone) return null;
 
@@ -145,5 +155,51 @@ async function getFeishuUserInfo(userAccessToken: string) {
 
 export async function getFeishuUserByCode(code: string) {
   const userAccessToken = await exchangeCodeForUserAccessToken(code);
+  return getFeishuUserInfo(userAccessToken);
+}
+
+export async function getFeishuUserByClientCode(code: string) {
+  const appTokenResponse = await fetch(
+    getFeishuApiUrl("/open-apis/auth/v3/app_access_token/internal"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        app_id: env.feishuAppId,
+        app_secret: env.feishuAppSecret,
+      }),
+      cache: "no-store",
+    },
+  );
+  const appTokenPayload = await parseFeishuResponse<AppAccessTokenResponse>(
+    appTokenResponse,
+    "Get Feishu app access token",
+  );
+  if (!appTokenPayload.app_access_token) {
+    throw new Error("Feishu app access token is empty.");
+  }
+
+  const userTokenResponse = await fetch(
+    getFeishuApiUrl("/open-apis/authen/v1/access_token"),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${appTokenPayload.app_access_token}`,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({ grant_type: "authorization_code", code }),
+      cache: "no-store",
+    },
+  );
+  const userTokenPayload =
+    await parseFeishuResponse<ClientUserAccessTokenResponse>(
+      userTokenResponse,
+      "Exchange Feishu client authorization code",
+    );
+  const userAccessToken = userTokenPayload.data?.access_token;
+  if (!userAccessToken) {
+    throw new Error("Feishu client user access token is empty.");
+  }
+
   return getFeishuUserInfo(userAccessToken);
 }
