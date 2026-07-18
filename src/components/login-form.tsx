@@ -15,12 +15,18 @@ const feishuErrorMessages: Record<string, string> = {
   missing_mobile: "飞书未返回手机号，请确认应用已开通手机号权限，并完成权限发布。",
   account_not_found: "未找到与飞书手机号匹配的员工账号，请确认员工档案手机号与飞书手机号一致。",
   callback_failed: "飞书免登处理失败，请检查飞书应用配置、回调地址和接口权限。",
+  client_access_failed: "飞书端内授权失败，请确认应用版本、可用范围和客户端版本。",
+  client_sdk_unavailable: "当前飞书客户端不支持端内免登接口，请升级飞书后重试。",
+  client_sdk_load_failed: "飞书免登组件加载失败，请检查网络后重试。",
+  client_login_failed: "飞书端内免登处理失败，请根据诊断编号检查服务端日志。",
 };
 
 export function LoginForm({
   feishuError,
+  feishuRequestId,
 }: {
   feishuError?: string;
+  feishuRequestId?: string;
 }) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
   const feishuErrorMessage = feishuError
@@ -32,6 +38,9 @@ export function LoginForm({
       {feishuErrorMessage ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {feishuErrorMessage}
+          {feishuRequestId ? (
+            <div className="mt-1 font-mono text-xs">诊断编号：{feishuRequestId}</div>
+          ) : null}
         </div>
       ) : null}
 
